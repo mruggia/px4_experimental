@@ -486,7 +486,7 @@ validate_module_configs:
 	-not -path "$(SRC_DIR)/src/modules/uxrce_dds_client/dds_topics.yaml" \
 	-not -path "$(SRC_DIR)/src/lib/events/libevents/*" \
 	-not -path "$(SRC_DIR)/src/lib/crypto/libtommath/*" -print0 | \
-	xargs -0 "$(SRC_DIR)"/Tools/validate_yaml.py --schema-file "$(SRC_DIR)"/validation/module_schema.yaml
+	xargs -0 "$(SRC_DIR)"/Tools/validate_yaml.py --schema-file "$(SRC_DIR)"/Tools/module_schema.yaml
 
 # Cleanup
 # --------------------------------------------------------------------
