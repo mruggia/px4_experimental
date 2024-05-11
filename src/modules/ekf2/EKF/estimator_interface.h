@@ -206,7 +206,19 @@ public:
 	bool isVerticalVelocityAidingActive() const;
 	int getNumberOfActiveVerticalVelocityAidingSources() const;
 
-	const matrix::Quatf &getQuaternion() const { return _output_predictor.getQuaternion(); }
+	matrix::Quatf getQuaternion() const
+	{
+		// FLIFO: rotate heading 180° when up-side-down
+		// (rotating heading is much easier than rotating heading setpoint, and has the same effect)
+		matrix::Quatf q = _output_predictor.getQuaternion();
+		matrix::Vector3f up = q.rotateVector(Vector3f(0.0f, 0.0f, 1.0f));
+		if (up(2)<0.0f) {
+			matrix::Eulerf e = matrix::Eulerf(q);
+			e(2) = matrix::wrap_pi(e(2) + M_PI_F);
+			q = matrix::Quatf(e);
+		}
+		return q;
+	}
 	Vector3f getVelocity() const { return _output_predictor.getVelocity(); }
 	const Vector3f &getVelocityDerivative() const { return _output_predictor.getVelocityDerivative(); }
 	float getVerticalPositionDerivative() const { return _output_predictor.getVerticalPositionDerivative(); }

@@ -107,7 +107,10 @@ inline matrix::Dcmf quatToInverseRotMat(const matrix::Quatf &quat)
 // when there is more pitch than roll tilt to avoid gimbal lock.
 inline bool shouldUse321RotationSequence(const matrix::Dcmf &R)
 {
-	return fabsf(R(2, 0)) < fabsf(R(2, 1));
+	// FLIFO: always use 321, otherwise ekf2 estimates get screwed up when up-side-down!
+	return true;
+
+	//return fabsf(R(2, 0)) < fabsf(R(2, 1));
 }
 
 inline float getEuler321Yaw(const matrix::Dcmf &R)

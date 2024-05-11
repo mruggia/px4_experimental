@@ -1,0 +1,154 @@
+
+
+
+######################################################################################################
+# flifo set up instructions ##########################################################################
+######################################################################################################
+
+
+######################################################################################################
+# set up ground pc (zotac box that connects to optitrack and drone_net)
+
+-> install windows same as for momav, then follow other instructions in this file
+-> ensure "ssh flifo@ground" works from this pc...
+-> create autostart bat file with "wsl -d flifo -- sudo /usr/sbin/service ssh start"
+-> create bat file with "wsl -d flifo -- ~/mavlink_natnet_bridge/build/mavlink_natnet_injector"
+
+
+######################################################################################################
+# set up WSL named flifo (for ground pc / development pc)
+
+mkdir %USERPROFILE%\wsl\flifo
+cd %USERPROFILE%\wsl\flifo
+powershell -command "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux"
+wsl --set-default-version 1
+wsl --unregister Ubuntu-20.04
+wsl --install --distribution Ubuntu-20.04
+-> user: flifo, pw: password
+exit
+wsl --export Ubuntu-20.04 flifo.tar
+wsl --import flifo . flifo.tar
+del flifo.tar
+wsl --unregister Ubuntu-20.04
+wsl -d flifo
+sudo nano /etc/wsl.conf
+	[boot]
+	systemd=true
+	[user]
+	default=flifo
+exit
+wsl -d flifo --shutdown && wsl -d flifo
+sudo usermod -a -G dialout $USER
+touch ~/.hushlogin
+echo -e "\nexport DISPLAY=localhost:0.0" >> ~/.bashrc
+source ~/.bashrc
+sudo update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
+sudo apt update
+exit
+wsl -d flifo --shutdown
+
+
+######################################################################################################
+# set up mavlink_natnet_bridge
+
+see https://github.com/mruggia/mavlink_natnet_bridge
+
+
+######################################################################################################
+# set up flifo firmware
+
+wsl -d flifo
+git clone git@github.com:mruggia/px4_flifo.git
+bash Tools/setup/ubuntu.sh
+
+make px4_fmu-v4_default
+python Tools/px_uploader_flifo.py px4_fmu-v4_default
+
+
+######################################################################################################
+# set up flifo drone
+
+-> install QGroundControl (v4.3.0): https://github.com/mavlink/qgroundcontrol/releases/tag/v4.3.0
+-> open QGroundControl (windows) & connect to flifo drone via usb
+-> set param: SYS_AUTOSTART = 4002 -> reboot drone
+-> configure battery settings + calibrate battery voltage divider
+-> calibrate: compass, gyroscope, accelerometer
+-> calibrate radio, then:
+->    set up flightmode switch
+->    set up arm switch (CH5) and kill switch (CH12)
+->    set up flifo switch (parameter "RC_MAP_FLIFO_SW")
+-> connect to pixhawk over wifi (with battery power) with SSID=PixRacer, pw=pixracer
+-> MAVLink Console: 
+->    reverse motors spinning wrong way with "dshot reverse -m <id>" or "dshot normal -m <id>"
+->    (motor spin direction is opposite of typical! spin away from x-axis!)
+->    enable 3d mode on all motors with "dshot 3d_on -m 0"
+->    save changes with "dshot save -m 0"
+
+
+
+
+######################################################################################################
+# other resources ####################################################################################
+######################################################################################################
+
+
+######################################################################################################
+# useful links
+
+https://github.com/PX4/PX4-Autopilot/tree/v1.14.0
+https://docs.px4.io/main/en/flight_stack/controller_diagrams.html
+https://docs.px4.io/main/en/advanced_config/parameter_reference.html
+https://docs.px4.io/main/en/modules/modules_main.html
+
+
+######################################################################################################
+# MAVLink shell commands
+
+ls 						# local file system
+free					# free memory
+top 					# cpu load
+dmesg 					# boot log (doesn't work!)
+reboot 					# reboot
+
+work_queue status		# all modules and rates in work queue
+<module> status 		# logs of module
+
+uorb top -1 			# all topics and rates
+listener <topic_name>	# last message of topic
+
+param show <filter>		# all parameters with a filter using wildcards
+param set <name> <val>	# change a parameter
+param save 				# save changed parameters
+
+
+######################################################################################################
+# create blank PX4-Autopilot repository clone (was done to create px4_flifo) 
+
+-> create fork of "PX4-Autopilot" named "px4_flifo" (fork everything, not only master)
+git clone --branch v1.14.0 git@github.com:mruggia/px4_flifo.git
+cd px4_flifo
+git checkout --orphan main
+git add -A
+git commit -am "clone PX4-Autopilot v1.14.0"
+git push -f origin main
+git branch -r | grep 'origin' | grep -v 'origin/main' | grep -v 'origin/HEAD' | cut -d/ -f2- | while read line; do git push origin :heads/$line; done;
+git tag -l | xargs -n 1 git push --delete origin
+git tag | xargs git tag -d
+git tag v1.14.0 && git push origin --tags
+git gc --aggressive --prune=all
+
+
+######################################################################################################
+# open windows console with preconfigured pannels (put this in a .bat file)
+
+start /WAIT /B taskkill /f /im vcxsrv.exe
+start "" "C:\Program Files\VcXsrv\vcxsrv.exe" -multiwindow -clipboard -wgl -ac
+wt ^
+	wsl -d flifo; ^
+split-pane -V ^
+	wsl -d flifo; ^
+move-focus left; split-pane -H ^
+	wsl -d flifo --cd %cd%; ^
+move-focus right; split-pane -H ^
+	wsl -d flifo
+

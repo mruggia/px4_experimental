@@ -208,6 +208,7 @@ public:
 
 		(ParamInt<px4::params::RC_MAP_FLAPS>) _param_rc_map_flaps,
 
+		(ParamInt<px4::params::RC_MAP_FLIFO_SW>) _param_rc_map_flifo_sw,
 		(ParamInt<px4::params::RC_MAP_RETURN_SW>) _param_rc_map_return_sw,
 		(ParamInt<px4::params::RC_MAP_LOITER_SW>) _param_rc_map_loiter_sw,
 		(ParamInt<px4::params::RC_MAP_OFFB_SW>) _param_rc_map_offb_sw,
@@ -228,6 +229,7 @@ public:
 
 		(ParamInt<px4::params::RC_FAILS_THR>) _param_rc_fails_thr,
 
+		(ParamFloat<px4::params::RC_FLIFO_TH>) _param_rc_flifo_th,
 		(ParamFloat<px4::params::RC_LOITER_TH>) _param_rc_loiter_th,
 		(ParamFloat<px4::params::RC_OFFB_TH>) _param_rc_offb_th,
 		(ParamFloat<px4::params::RC_KILLSWITCH_TH>) _param_rc_killswitch_th,

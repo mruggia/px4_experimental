@@ -52,6 +52,7 @@ px4_add_romfs_files(
 
 	# [4000, 4999] Quadrotor x"
 	4001_quad_x
+	4002_flifo_v1
 	4014_s500
 	4015_holybro_s500
 	4016_holybro_px4vision
@@ -124,4 +125,5 @@ px4_add_romfs_files(
 	60000_uuv_generic
 	60001_uuv_hippocampus
 	60002_uuv_bluerov2_heavy
+	
 )

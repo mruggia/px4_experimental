@@ -262,6 +262,10 @@ ControlAllocator::update_effectiveness_source()
 			tmp = new ActuatorEffectivenessHelicopter(this);
 			break;
 
+		case EffectivenessSource::FLIFO:
+			tmp = new ActuatorEffectivenessFlifo(this);
+			break;
+
 		default:
 			PX4_ERR("Unknown airframe");
 			break;
@@ -355,6 +359,19 @@ ControlAllocator::Run()
 		}
 	}
 
+	// FLIFO: update motor effectiveness based on flifo_state
+	if (_effectiveness_source_id == EffectivenessSource::FLIFO) {
+
+		flifo_status_s flifo_status;
+		if(_flifo_status_sub.update(&flifo_status)) {
+
+			ActuatorEffectivenessFlifo* flifo_effectiveness = (ActuatorEffectivenessFlifo*) _actuator_effectiveness;
+			flifo_effectiveness->setFlifoStatus(flifo_status);
+			update_effectiveness_matrix_if_needed(EffectivenessUpdateReason::CONFIGURATION_UPDATE);
+		}
+	}
+
+
 	// Guard against too small (< 0.2ms) and too large (> 20ms) dt's.
 	const hrt_abstime now = hrt_absolute_time();
 	const float dt = math::constrain(((now - _last_run) / 1e6f), 0.0002f, 0.02f);
@@ -381,8 +398,17 @@ ControlAllocator::Run()
 			do_update = true;
 			_timestamp_sample = vehicle_thrust_setpoint.timestamp_sample;
 		}
-	}
 
+		// FLIFO: scale thrust_sp for up-side-down flying as thrust allocation is always normalized..
+		if (_effectiveness_source_id == EffectivenessSource::FLIFO) {
+			ActuatorEffectivenessFlifo* flifo_effectiveness = (ActuatorEffectivenessFlifo*) _actuator_effectiveness;
+			if (flifo_effectiveness->getFlifoStatus().is_inv) {
+				_thrust_sp(2) = _thrust_sp(2) * flifo_effectiveness->getFlifoUSDThrustFactor();
+				if (_thrust_sp(2) >= 1.0f) { _thrust_sp(2) = 1.0f-FLT_EPSILON; }
+			}
+		}
+	}
+	
 	if (do_update) {
 		_last_run = now;
 
@@ -519,6 +545,18 @@ ControlAllocator::update_effectiveness_matrix_if_needed(EffectivenessUpdateReaso
 				}
 
 				maximum[selected_matrix](actuator_idx_matrix[selected_matrix]) = 1.f;
+
+				// FLIFO: update motor min/max based on flifo_state
+				// need to do it here, since ActuatorEffectiveness has no acces to actuator min,max values
+				// capping afterwards would prevent MC_AIRMODE from working correctly
+				if(_effectiveness_source_id == EffectivenessSource::FLIFO) {
+					if ((ActuatorType)actuator_type == ActuatorType::MOTORS) {
+						ActuatorEffectivenessFlifo* flifo_effectiveness = (ActuatorEffectivenessFlifo*) _actuator_effectiveness;
+
+						minimum[selected_matrix](actuator_idx_matrix[selected_matrix]) = flifo_effectiveness->getFlifoActuatorMin();
+						maximum[selected_matrix](actuator_idx_matrix[selected_matrix]) = flifo_effectiveness->getFlifoActuatorMax();
+					}
+				}
 
 				++actuator_idx_matrix[selected_matrix];
 				++actuator_idx;

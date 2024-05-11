@@ -255,6 +255,15 @@ void ManualControl::Run()
 						}
 					}
 
+					if (switches.flifo_switch != _previous_switches.flifo_switch) {
+						if (switches.flifo_switch == manual_control_switches_s::SWITCH_POS_ON) {
+							sendActionRequest(action_request_s::ACTION_FLIFO_RSU_TO_USD, action_request_s::SOURCE_RC_SWITCH);
+
+						} else if (switches.flifo_switch == manual_control_switches_s::SWITCH_POS_OFF) {
+							sendActionRequest(action_request_s::ACTION_FLIFO_USD_TO_RSU, action_request_s::SOURCE_RC_SWITCH);
+						}
+					}
+
 					if (switches.photo_switch != _previous_switches.photo_switch) {
 						if (switches.photo_switch == manual_control_switches_s::SWITCH_POS_ON) {
 							send_camera_mode_command(CameraMode::Image);

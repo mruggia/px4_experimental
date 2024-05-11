@@ -62,6 +62,8 @@ px4_add_library(ActuatorEffectiveness
 	ActuatorEffectivenessRoverAckermann.cpp
 	ActuatorEffectivenessRoverDifferential.hpp
 	ActuatorEffectivenessRoverDifferential.cpp
+	ActuatorEffectivenessFlifo.hpp
+	ActuatorEffectivenessFlifo.cpp
 )
 
 target_compile_options(ActuatorEffectiveness PRIVATE ${MAX_CUSTOM_OPT_LEVEL})

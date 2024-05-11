@@ -48,6 +48,7 @@ namespace rc_update
 static bool operator ==(const manual_control_switches_s &a, const manual_control_switches_s &b)
 {
 	return (a.mode_slot == b.mode_slot &&
+		a.flifo_switch == b.flifo_switch &&
 		a.return_switch == b.return_switch &&
 		a.loiter_switch == b.loiter_switch &&
 		a.offboard_switch == b.offboard_switch &&
@@ -230,6 +231,7 @@ void RCUpdate::update_rc_functions()
 	_rc.function[rc_channels_s::FUNCTION_PITCH] = _param_rc_map_pitch.get() - 1;
 	_rc.function[rc_channels_s::FUNCTION_YAW] = _param_rc_map_yaw.get() - 1;
 
+	_rc.function[rc_channels_s::FUNCTION_FLIFO] = _param_rc_map_flifo_sw.get() - 1;
 	_rc.function[rc_channels_s::FUNCTION_RETURN] = _param_rc_map_return_sw.get() - 1;
 	_rc.function[rc_channels_s::FUNCTION_LOITER] = _param_rc_map_loiter_sw.get() - 1;
 	_rc.function[rc_channels_s::FUNCTION_OFFBOARD] = _param_rc_map_offb_sw.get() - 1;
@@ -631,6 +633,7 @@ void RCUpdate::UpdateManualSwitches(const hrt_abstime &timestamp_sample)
 		}
 	}
 
+	switches.flifo_switch = getRCSwitchOnOffPosition(rc_channels_s::FUNCTION_FLIFO, _param_rc_flifo_th.get());
 	switches.return_switch = getRCSwitchOnOffPosition(rc_channels_s::FUNCTION_RETURN, _param_rc_return_th.get());
 	switches.loiter_switch = getRCSwitchOnOffPosition(rc_channels_s::FUNCTION_LOITER, _param_rc_loiter_th.get());
 	switches.offboard_switch = getRCSwitchOnOffPosition(rc_channels_s::FUNCTION_OFFBOARD, _param_rc_offb_th.get());

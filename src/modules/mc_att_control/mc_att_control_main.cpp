@@ -183,10 +183,10 @@ MulticopterAttitudeControl::generate_attitude_setpoint(const Quatf &q, float dt,
 
 	_vehicle_attitude_setpoint_pub.publish(attitude_setpoint);
 
-	// update attitude controller setpoint immediately
-	_attitude_control.setAttitudeSetpoint(q_sp, attitude_setpoint.yaw_sp_move_rate);
-	_thrust_setpoint_body = Vector3f(attitude_setpoint.thrust_body);
-	_last_attitude_setpoint = attitude_setpoint.timestamp;
+	// FLIFO: don't update attitude controller setpoints immediately. flifo_att_control might modify them via the virtual setpoint.
+	//_attitude_control.setAttitudeSetpoint(q_sp, attitude_setpoint.yaw_sp_move_rate);
+	//_thrust_setpoint_body = Vector3f(attitude_setpoint.thrust_body);
+	//_last_attitude_setpoint = attitude_setpoint.timestamp;
 }
 
 void

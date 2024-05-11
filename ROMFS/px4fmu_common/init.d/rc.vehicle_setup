@@ -42,6 +42,15 @@ then
 fi
 
 #
+# flifo setup.
+#
+if [ $VEHICLE_TYPE = flifo ]
+then
+	# Start standard flifo apps.
+	. ${R}etc/init.d/rc.flifo_apps
+fi
+
+#
 # Airship setup.
 #
 if [ $VEHICLE_TYPE = airship ]
