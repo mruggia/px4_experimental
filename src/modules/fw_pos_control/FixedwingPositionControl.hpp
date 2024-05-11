@@ -170,7 +170,7 @@ class FixedwingPositionControl final : public ModuleBase<FixedwingPositionContro
 	public px4::WorkItem
 {
 public:
-	FixedwingPositionControl(bool vtol = false);
+	FixedwingPositionControl(bool virtual_setpoint = false);
 	~FixedwingPositionControl() override;
 
 	/** @see ModuleBase */
@@ -393,15 +393,6 @@ private:
 	bool _tecs_is_running{false};
 	hrt_abstime _time_last_tecs_update{0}; // [us]
 
-	// VTOL / TRANSITION
-
-	float _airspeed_after_transition{0.0f};
-	bool _was_in_transition{false};
-	bool _is_vtol_tailsitter{false};
-	matrix::Vector2d _transition_waypoint{(double)NAN, (double)NAN};
-	param_t _param_handle_airspeed_trans{PARAM_INVALID};
-	float _param_airspeed_trans{NAN}; // [m/s]
-
 	// ESTIMATOR RESET COUNTERS
 
 	// captures the number of times the estimator has reset the horizontal position
@@ -492,7 +483,7 @@ private:
 	/**
 	 * @brief Updates a state indicating whether a manual takeoff has been completed.
 	 *
-	 * Criteria include passing an airspeed threshold and not being in a landed state. VTOL airframes always pass.
+	 * Criteria include passing an airspeed threshold and not being in a landed state.
 	 */
 	void updateManualTakeoffStatus();
 
@@ -509,14 +500,6 @@ private:
 	 * @param now Current system time [us]
 	 */
 	void update_in_air_states(const hrt_abstime now);
-
-	/**
-	 * @brief Moves the current position setpoint to a value far ahead of the current vehicle yaw when in  a VTOL
-	 * transition.
-	 *
-	 * @param[in,out] current_sp Current position setpoint
-	 */
-	void move_position_setpoint_for_vtol_transition(position_setpoint_s &current_sp);
 
 	/**
 	 * @brief Changes the position setpoint type to achieve the desired behavior in some instances.

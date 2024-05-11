@@ -56,6 +56,7 @@ FlifoAttitudeControl::FlifoAttitudeControl() :
 	poll_parameters();
 
 	_vehicle_attitude_setpoint_pub.advertise();
+	_vehicle_rates_setpoint_pub.advertise();
 	_vehicle_thrust_setpoint_pub.advertise();
 	_vehicle_torque_setpoint_pub.advertise();
 
@@ -157,7 +158,8 @@ void FlifoAttitudeControl::Run()
 	poll_action_request();
 	poll_vehicle_cmd();
 
-	float dt = (hrt_absolute_time() - _last_transition) / 1e6f;
+	hrt_abstime now = hrt_absolute_time();
+	float dt = (now - _last_transition) / 1e6f;
 	if (dt < _param_flifo_spk_tme.get()) {
 		_flifo_flip.phase = _flifo_flip_s::FLIFO_SPIKE;
 		_flifo_flip.progress = dt/_param_flifo_spk_tme.get();
@@ -184,19 +186,25 @@ void FlifoAttitudeControl::Run()
 
 	if (_virtual_attitude_setpoint_sub.update(&_virtual_attitude_setpoint)) {
 		update_attitude_setpoint();
-		_vehicle_attitude_setpoint.timestamp = hrt_absolute_time();
+		_vehicle_attitude_setpoint.timestamp = now;
 		_vehicle_attitude_setpoint_pub.publish(_vehicle_attitude_setpoint);
+	}
+
+	if (_virtual_rates_setpoint_sub.update(&_virtual_rates_setpoint)) {
+		update_rates_setpoint();
+		_vehicle_rates_setpoint.timestamp = now;
+		_vehicle_rates_setpoint_pub.publish(_vehicle_rates_setpoint);
 	}
 
 	if (_virtual_thrust_setpoint_sub.update(&_virtual_thrust_setpoint)) {
 		update_thrust_setpoint();
-		_vehicle_thrust_setpoint.timestamp = hrt_absolute_time();
+		_vehicle_thrust_setpoint.timestamp = now;
 		_vehicle_thrust_setpoint_pub.publish(_vehicle_thrust_setpoint);
 	}
 
 	if (_virtual_torque_setpoint_sub.update(&_virtual_torque_setpoint)) {
 		update_torque_setpoint();
-		_vehicle_torque_setpoint.timestamp = hrt_absolute_time();
+		_vehicle_torque_setpoint.timestamp = now;
 		_vehicle_torque_setpoint_pub.publish(_vehicle_torque_setpoint);
 	}
 
@@ -358,6 +366,11 @@ void FlifoAttitudeControl::update_attitude_setpoint()
 	_vehicle_attitude_setpoint.pitch_body = euler_sp(1);
 	_vehicle_attitude_setpoint.yaw_body = euler_sp(2);
 
+}
+
+void FlifoAttitudeControl::update_rates_setpoint()
+{
+	_vehicle_rates_setpoint = _virtual_rates_setpoint;
 }
 
 void FlifoAttitudeControl::update_thrust_setpoint()

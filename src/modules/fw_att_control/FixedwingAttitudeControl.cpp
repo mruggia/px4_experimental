@@ -39,10 +39,11 @@ using namespace matrix;
 using math::constrain;
 using math::radians;
 
-FixedwingAttitudeControl::FixedwingAttitudeControl(bool vtol) :
+FixedwingAttitudeControl::FixedwingAttitudeControl(bool virtual_setpoint) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
-	_attitude_sp_pub(vtol ? ORB_ID(fw_virtual_attitude_setpoint) : ORB_ID(vehicle_attitude_setpoint)),
+	_attitude_sp_pub(virtual_setpoint ? ORB_ID(vehicle_attitude_setpoint_virtual_fw) : ORB_ID(vehicle_attitude_setpoint)),
+	_rate_sp_pub(virtual_setpoint ? ORB_ID(vehicle_rates_setpoint_virtual_fw) : ORB_ID(vehicle_rates_setpoint)),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
 	/* fetch initial parameter values */
@@ -87,7 +88,7 @@ FixedwingAttitudeControl::parameters_update()
 void
 FixedwingAttitudeControl::vehicle_manual_poll(const float yaw_body)
 {
-	if (_vcontrol_mode.flag_control_manual_enabled && _in_fw_or_transition_wo_tailsitter_transition) {
+	if (_vcontrol_mode.flag_control_manual_enabled) {
 
 		// Always copy the new manual setpoint, even if it wasn't updated, to fill the actuators with valid values
 		if (_manual_control_setpoint_sub.copy(&_manual_control_setpoint)) {
@@ -154,14 +155,6 @@ float FixedwingAttitudeControl::get_airspeed_constrained()
 		/* prevent numerical drama by requiring 0.5 m/s minimal speed */
 		airspeed = math::max(0.5f, _airspeed_validated_sub.get().calibrated_airspeed_m_s);
 
-	} else {
-		// VTOL: if we have no airspeed available and we are in hover mode then assume the lowest airspeed possible
-		// this assumption is good as long as the vehicle is not hovering in a headwind which is much larger
-		// than the stall airspeed
-		if (_vehicle_status.is_vtol && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
-		    && !_vehicle_status.in_transition_mode) {
-			airspeed = _param_fw_airspd_stall.get();
-		}
 	}
 
 	return math::constrain(airspeed, _param_fw_airspd_stall.get(), _param_fw_airspd_max.get());
@@ -218,56 +211,11 @@ void FixedwingAttitudeControl::Run()
 		vehicle_angular_velocity_s angular_velocity{};
 		_vehicle_rates_sub.copy(&angular_velocity);
 
-		if (_vehicle_status.is_vtol_tailsitter) {
-			/* vehicle is a tailsitter, we need to modify the estimated attitude for fw mode
-			 *
-			 * Since the VTOL airframe is initialized as a multicopter we need to
-			 * modify the estimated attitude for the fixed wing operation.
-			 * Since the neutral position of the vehicle in fixed wing mode is -90 degrees rotated around
-			 * the pitch axis compared to the neutral position of the vehicle in multicopter mode
-			 * we need to swap the roll and the yaw axis (1st and 3rd column) in the rotation matrix.
-			 * Additionally, in order to get the correct sign of the pitch, we need to multiply
-			 * the new x axis of the rotation matrix with -1
-			 *
-			 * original:			modified:
-			 *
-			 * Rxx  Ryx  Rzx		-Rzx  Ryx  Rxx
-			 * Rxy	Ryy  Rzy		-Rzy  Ryy  Rxy
-			 * Rxz	Ryz  Rzz		-Rzz  Ryz  Rxz
-			 * */
-			matrix::Dcmf R_adapted = _R;		//modified rotation matrix
-
-			/* move z to x */
-			R_adapted(0, 0) = _R(0, 2);
-			R_adapted(1, 0) = _R(1, 2);
-			R_adapted(2, 0) = _R(2, 2);
-
-			/* move x to z */
-			R_adapted(0, 2) = _R(0, 0);
-			R_adapted(1, 2) = _R(1, 0);
-			R_adapted(2, 2) = _R(2, 0);
-
-			/* change direction of pitch (convert to right handed system) */
-			R_adapted(0, 0) = -R_adapted(0, 0);
-			R_adapted(1, 0) = -R_adapted(1, 0);
-			R_adapted(2, 0) = -R_adapted(2, 0);
-
-			/* fill in new attitude data */
-			_R = R_adapted;
-		}
-
 		const matrix::Eulerf euler_angles(_R);
 
 		vehicle_manual_poll(euler_angles.psi());
 
 		vehicle_attitude_setpoint_poll();
-
-		// vehicle status update must be before the vehicle_control_mode poll, otherwise rate sp are not published during whole transition
-		_vehicle_status_sub.update(&_vehicle_status);
-		const bool is_in_transition_except_tailsitter = _vehicle_status.in_transition_mode
-				&& !_vehicle_status.is_vtol_tailsitter;
-		const bool is_fixed_wing = _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING;
-		_in_fw_or_transition_wo_tailsitter_transition =  is_fixed_wing || is_in_transition_except_tailsitter;
 
 		_vehicle_control_mode_sub.update(&_vcontrol_mode);
 
@@ -279,20 +227,10 @@ void FixedwingAttitudeControl::Run()
 			wheel_control = true;
 		}
 
-		/* if we are in rotary wing mode, do nothing */
-		if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.is_vtol) {
-			perf_end(_loop_perf);
-			return;
-		}
-
 		if (_vcontrol_mode.flag_control_rates_enabled) {
 
-			/* Reset integrators if commanded by attitude setpoint, or the aircraft is on ground
-			 * or a multicopter (but not transitioning VTOL or tailsitter)
-			 */
-			if (_att_sp.reset_integral
-			    || _landed
-			    || !_in_fw_or_transition_wo_tailsitter_transition) {
+			// Reset integrators if commanded by attitude setpoint, or the aircraft is on ground
+			if (_att_sp.reset_integral || _landed) {
 
 				_rates_sp.reset_integral = true;
 				_wheel_ctrl.reset_integrator();
@@ -339,7 +277,7 @@ void FixedwingAttitudeControl::Run()
 
 			/* Run attitude controllers */
 
-			if (_vcontrol_mode.flag_control_attitude_enabled && _in_fw_or_transition_wo_tailsitter_transition) {
+			if (_vcontrol_mode.flag_control_attitude_enabled) {
 				if (PX4_ISFINITE(_att_sp.roll_body) && PX4_ISFINITE(_att_sp.pitch_body)) {
 					_roll_ctrl.control_attitude(dt, control_input);
 					_pitch_ctrl.control_attitude(dt, control_input);
@@ -375,11 +313,6 @@ void FixedwingAttitudeControl::Run()
 					if (_vcontrol_mode.flag_control_manual_enabled) {
 						body_rates_setpoint(2) += math::constrain(_manual_control_setpoint.yaw * radians(_param_fw_y_rmax.get()),
 									  -radians(_param_fw_y_rmax.get()), radians(_param_fw_y_rmax.get()));
-					}
-
-					// Tailsitter: transform from FW to hover frame (all interfaces are in hover (body) frame)
-					if (_vehicle_status.is_vtol_tailsitter) {
-						body_rates_setpoint = Vector3f(body_rates_setpoint(2), body_rates_setpoint(1), -body_rates_setpoint(0));
 					}
 
 					/* Publish the rate setpoint for analysis once available */
@@ -432,15 +365,15 @@ void FixedwingAttitudeControl::Run()
 
 int FixedwingAttitudeControl::task_spawn(int argc, char *argv[])
 {
-	bool vtol = false;
+	bool virtual_setpoint = false;
 
 	if (argc > 1) {
-		if (strcmp(argv[1], "vtol") == 0) {
-			vtol = true;
+		if (strcmp(argv[1], "virtual") == 0) {
+			virtual_setpoint = true;
 		}
 	}
 
-	FixedwingAttitudeControl *instance = new FixedwingAttitudeControl(vtol);
+	FixedwingAttitudeControl *instance = new FixedwingAttitudeControl(virtual_setpoint);
 
 	if (instance) {
 		_object.store(instance);
@@ -481,7 +414,7 @@ fw_att_control is the fixed wing attitude controller.
 
 	PRINT_MODULE_USAGE_NAME("fw_att_control", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_ARG("vtol", "VTOL mode", true);
+	PRINT_MODULE_USAGE_ARG("virtual", "publish virtual setpoints", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

@@ -122,6 +122,13 @@ param save 				# save changed parameters
 
 
 ######################################################################################################
+# known problems
+
+-> heading is flipped 180° when up-side-down. this could cause problems for non flifo drones
+-> changes to virtual setpoints breaks vtol code
+
+
+######################################################################################################
 # create blank PX4-Autopilot repository clone (was done to create px4_flifo) 
 
 -> create fork of "PX4-Autopilot" named "px4_flifo" (fork everything, not only master)

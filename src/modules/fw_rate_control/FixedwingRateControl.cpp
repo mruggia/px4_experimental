@@ -40,15 +40,14 @@ using math::constrain;
 using math::interpolate;
 using math::radians;
 
-FixedwingRateControl::FixedwingRateControl(bool vtol) :
+FixedwingRateControl::FixedwingRateControl(bool virtual_setpoint) :
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
-	_actuator_controls_status_pub(vtol ? ORB_ID(actuator_controls_status_1) : ORB_ID(actuator_controls_status_0)),
-	_vehicle_torque_setpoint_pub(vtol ? ORB_ID(vehicle_torque_setpoint_virtual_fw) : ORB_ID(vehicle_torque_setpoint)),
-	_vehicle_thrust_setpoint_pub(vtol ? ORB_ID(vehicle_thrust_setpoint_virtual_fw) : ORB_ID(vehicle_thrust_setpoint)),
+	_actuator_controls_status_pub(virtual_setpoint ? ORB_ID(actuator_controls_status_1) : ORB_ID(actuator_controls_status_0)),
+	_vehicle_torque_setpoint_pub(virtual_setpoint ? ORB_ID(vehicle_torque_setpoint_virtual_fw) : ORB_ID(vehicle_torque_setpoint)),
+	_vehicle_thrust_setpoint_pub(virtual_setpoint ? ORB_ID(vehicle_thrust_setpoint_virtual_fw) : ORB_ID(vehicle_thrust_setpoint)),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle"))
 {
-	_handle_param_vt_fw_difthr_en = param_find("VT_FW_DIFTHR_EN");
 
 	/* fetch initial parameter values */
 	parameters_update();
@@ -88,18 +87,13 @@ FixedwingRateControl::parameters_update()
 		// set FF gains to 0 as we add the FF control outside of the rate controller
 		Vector3f(0.f, 0.f, 0.f));
 
-	if (_handle_param_vt_fw_difthr_en != PARAM_INVALID) {
-		param_get(_handle_param_vt_fw_difthr_en, &_param_vt_fw_difthr_en);
-	}
-
-
 	return PX4_OK;
 }
 
 void
 FixedwingRateControl::vehicle_manual_poll()
 {
-	if (_vcontrol_mode.flag_control_manual_enabled && _in_fw_or_transition_wo_tailsitter_transition) {
+	if (_vcontrol_mode.flag_control_manual_enabled) {
 
 		// Always copy the new manual setpoint, even if it wasn't updated, to fill the actuators with valid values
 		if (_manual_control_setpoint_sub.copy(&_manual_control_setpoint)) {
@@ -109,15 +103,8 @@ FixedwingRateControl::vehicle_manual_poll()
 
 				// RATE mode we need to generate the rate setpoint from manual user inputs
 
-				if (_vehicle_status.is_vtol_tailsitter && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING) {
-					// the rate_sp must always be published in body (hover) frame
-					_rates_sp.roll = _manual_control_setpoint.yaw * radians(_param_fw_acro_z_max.get());
-					_rates_sp.yaw = -_manual_control_setpoint.roll * radians(_param_fw_acro_x_max.get());
-
-				} else {
-					_rates_sp.roll = _manual_control_setpoint.roll * radians(_param_fw_acro_x_max.get());
-					_rates_sp.yaw = _manual_control_setpoint.yaw * radians(_param_fw_acro_z_max.get());
-				}
+				_rates_sp.roll = _manual_control_setpoint.roll * radians(_param_fw_acro_x_max.get());
+				_rates_sp.yaw = _manual_control_setpoint.yaw * radians(_param_fw_acro_z_max.get());
 
 				_rates_sp.timestamp = hrt_absolute_time();
 				_rates_sp.pitch = -_manual_control_setpoint.pitch * radians(_param_fw_acro_y_max.get());
@@ -166,14 +153,6 @@ float FixedwingRateControl::get_airspeed_and_update_scaling()
 		/* prevent numerical drama by requiring 0.5 m/s minimal speed */
 		airspeed = math::max(0.5f, _airspeed_validated_sub.get().calibrated_airspeed_m_s);
 
-	} else {
-		// VTOL: if we have no airspeed available and we are in hover mode then assume the lowest airspeed possible
-		// this assumption is good as long as the vehicle is not hovering in a headwind which is much larger
-		// than the stall airspeed
-		if (_vehicle_status.is_vtol && _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
-		    && !_vehicle_status.in_transition_mode) {
-			airspeed = _param_fw_airspd_stall.get();
-		}
 	}
 
 	/*
@@ -242,32 +221,12 @@ void FixedwingRateControl::Run()
 		Vector3f rates(angular_velocity.xyz);
 		Vector3f angular_accel{angular_velocity.xyz_derivative};
 
-		// Tailsitter: rotate setpoint from hover to fixed-wing frame (controller is in fixed-wing frame, interface in hover)
-		if (_vehicle_status.is_vtol_tailsitter) {
-			rates = Vector3f(-angular_velocity.xyz[2], angular_velocity.xyz[1], angular_velocity.xyz[0]);
-			angular_accel = Vector3f(-angular_velocity.xyz_derivative[2], angular_velocity.xyz_derivative[1],
-						 angular_velocity.xyz_derivative[0]);
-		}
-
-		// vehicle status update must be before the vehicle_control_mode poll, otherwise rate sp are not published during whole transition
-		_vehicle_status_sub.update(&_vehicle_status);
-		const bool is_in_transition_except_tailsitter = _vehicle_status.in_transition_mode
-				&& !_vehicle_status.is_vtol_tailsitter;
-		const bool is_fixed_wing = _vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING;
-		_in_fw_or_transition_wo_tailsitter_transition =  is_fixed_wing || is_in_transition_except_tailsitter;
-
 		_vehicle_control_mode_sub.update(&_vcontrol_mode);
 
 		vehicle_land_detected_poll();
 
 		vehicle_manual_poll();
 		vehicle_land_detected_poll();
-
-		/* if we are in rotary wing mode, do nothing */
-		if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.is_vtol) {
-			perf_end(_loop_perf);
-			return;
-		}
 
 		if (_vcontrol_mode.flag_control_rates_enabled) {
 
@@ -278,46 +237,20 @@ void FixedwingRateControl::Run()
 				_rate_control.resetIntegral();
 			}
 
-			// Reset integrators if the aircraft is on ground or not in a state where the fw attitude controller is run
-			if (_landed || !_in_fw_or_transition_wo_tailsitter_transition) {
+			// Reset integrators if the aircraft is on ground
+			if (_landed) {
 
 				_rate_control.resetIntegral();
 			}
 
-			// Update saturation status from control allocation feedback
-			// TODO: send the unallocated value directly for better anti-windup
-			Vector3<bool> diffthr_enabled(
-				_param_vt_fw_difthr_en & static_cast<int32_t>(VTOLFixedWingDifferentialThrustEnabledBit::ROLL_BIT),
-				_param_vt_fw_difthr_en & static_cast<int32_t>(VTOLFixedWingDifferentialThrustEnabledBit::PITCH_BIT),
-				_param_vt_fw_difthr_en & static_cast<int32_t>(VTOLFixedWingDifferentialThrustEnabledBit::YAW_BIT)
-			);
-
-			if (_vehicle_status.is_vtol_tailsitter) {
-				// Swap roll and yaw
-				diffthr_enabled.swapRows(0, 2);
-			}
-
-			// saturation handling for axis controlled by differential thrust (VTOL only)
+			// saturation handling for axis controlled by differential thrust
 			control_allocator_status_s control_allocator_status;
 
-			// Set saturation flags for VTOL differential thrust feature
-			// If differential thrust is enabled in an axis, assume it's the only torque authority and only update saturation using matrix 0 allocating the motors.
+			// Set saturation flags for control surface controlled axes
 			if (_control_allocator_status_subs[0].update(&control_allocator_status)) {
 				for (size_t i = 0; i < 3; i++) {
-					if (diffthr_enabled(i)) {
-						_rate_control.setPositiveSaturationFlag(i, control_allocator_status.unallocated_torque[i] > FLT_EPSILON);
-						_rate_control.setNegativeSaturationFlag(i, control_allocator_status.unallocated_torque[i] < -FLT_EPSILON);
-					}
-				}
-			}
-
-			// Set saturation flags for control surface controlled axes
-			if (_control_allocator_status_subs[_vehicle_status.is_vtol ? 1 : 0].update(&control_allocator_status)) {
-				for (size_t i = 0; i < 3; i++) {
-					if (!diffthr_enabled(i)) {
-						_rate_control.setPositiveSaturationFlag(i, control_allocator_status.unallocated_torque[i] > FLT_EPSILON);
-						_rate_control.setNegativeSaturationFlag(i, control_allocator_status.unallocated_torque[i] < -FLT_EPSILON);
-					}
+					_rate_control.setPositiveSaturationFlag(i, control_allocator_status.unallocated_torque[i] > FLT_EPSILON);
+					_rate_control.setNegativeSaturationFlag(i, control_allocator_status.unallocated_torque[i] < -FLT_EPSILON);
 				}
 			}
 
@@ -350,11 +283,6 @@ void FixedwingRateControl::Run()
 				_rates_sp_sub.update(&_rates_sp);
 
 				Vector3f body_rates_setpoint = Vector3f(_rates_sp.roll, _rates_sp.pitch, _rates_sp.yaw);
-
-				// Tailsitter: rotate setpoint from hover to fixed-wing frame (controller is in fixed-wing frame, interface in hover)
-				if (_vehicle_status.is_vtol_tailsitter) {
-					body_rates_setpoint = Vector3f(-_rates_sp.yaw, _rates_sp.pitch, _rates_sp.roll);
-				}
 
 				/* Run attitude RATE controllers which need the desired attitudes from above, add trim */
 				const Vector3f angular_acceleration_setpoint = _rate_control.update(rates, body_rates_setpoint, angular_accel, dt,
@@ -412,13 +340,6 @@ void FixedwingRateControl::Run()
 		_vehicle_torque_setpoint.xyz[2] = math::constrain(_vehicle_torque_setpoint.xyz[2] + _param_fw_rll_to_yaw_ff.get() *
 						  _vehicle_torque_setpoint.xyz[0], -1.f, 1.f);
 
-		// Tailsitter: rotate back to body frame from airspeed frame
-		if (_vehicle_status.is_vtol_tailsitter) {
-			const float helper = _vehicle_torque_setpoint.xyz[0];
-			_vehicle_torque_setpoint.xyz[0] = _vehicle_torque_setpoint.xyz[2];
-			_vehicle_torque_setpoint.xyz[2] = -helper;
-		}
-
 		/* Only publish if any of the proper modes are enabled */
 		if (_vcontrol_mode.flag_control_rates_enabled ||
 		    _vcontrol_mode.flag_control_attitude_enabled ||
@@ -436,7 +357,7 @@ void FixedwingRateControl::Run()
 
 		updateActuatorControlsStatus(dt);
 
-		// Manual flaps/spoilers control, also active in VTOL Hover. Is handled and published in FW Position controller/VTOL module if Auto.
+		// Manual flaps/spoilers control
 		if (_vcontrol_mode.flag_control_manual_enabled) {
 
 			// Flaps control
@@ -514,15 +435,15 @@ void FixedwingRateControl::updateActuatorControlsStatus(float dt)
 
 int FixedwingRateControl::task_spawn(int argc, char *argv[])
 {
-	bool vtol = false;
+	bool virtual_setpoint = false;
 
 	if (argc > 1) {
-		if (strcmp(argv[1], "vtol") == 0) {
-			vtol = true;
+		if (strcmp(argv[1], "virtual") == 0) {
+			virtual_setpoint = true;
 		}
 	}
 
-	FixedwingRateControl *instance = new FixedwingRateControl(vtol);
+	FixedwingRateControl *instance = new FixedwingRateControl(virtual_setpoint);
 
 	if (instance) {
 		_object.store(instance);
@@ -563,7 +484,7 @@ fw_rate_control is the fixed-wing rate controller.
 
 	PRINT_MODULE_USAGE_NAME("fw_rate_control", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_ARG("vtol", "VTOL mode", true);
+	PRINT_MODULE_USAGE_ARG("virtual", "publish virtual setpoints", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

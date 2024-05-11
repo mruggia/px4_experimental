@@ -48,17 +48,14 @@ using matrix::Vector2d;
 using matrix::Vector3f;
 using matrix::wrap_pi;
 
-FixedwingPositionControl::FixedwingPositionControl(bool vtol) :
+FixedwingPositionControl::FixedwingPositionControl(bool virtual_setpoint) :
 	ModuleParams(nullptr),
 	WorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
-	_attitude_sp_pub(vtol ? ORB_ID(fw_virtual_attitude_setpoint) : ORB_ID(vehicle_attitude_setpoint)),
+	_attitude_sp_pub(virtual_setpoint ? ORB_ID(vehicle_attitude_setpoint_virtual_fw) : ORB_ID(vehicle_attitude_setpoint)),
 	_loop_perf(perf_alloc(PC_ELAPSED, MODULE_NAME": cycle")),
 	_launchDetector(this),
 	_runway_takeoff(this)
 {
-	if (vtol) {
-		_param_handle_airspeed_trans = param_find("VT_ARSP_TRANS");
-	}
 
 	// limit to 50 Hz
 	_local_pos_sub.set_interval_ms(20);
@@ -100,11 +97,6 @@ int
 FixedwingPositionControl::parameters_update()
 {
 	updateParams();
-
-	// VTOL parameter VT_ARSP_TRANS
-	if (_param_handle_airspeed_trans != PARAM_INVALID) {
-		param_get(_param_handle_airspeed_trans, &_param_airspeed_trans);
-	}
 
 	// NPFG parameters
 	_npfg.setPeriod(_param_npfg_period.get());
@@ -353,17 +345,7 @@ FixedwingPositionControl::vehicle_attitude_poll()
 
 		Dcmf R{Quatf(att.q)};
 
-		// if the vehicle is a tailsitter we have to rotate the attitude by the pitch offset
-		// between multirotor and fixed wing flight
-		if (_vehicle_status.is_vtol_tailsitter) {
-			const Dcmf R_offset{Eulerf{0.f, M_PI_2_F, 0.f}};
-			R = R * R_offset;
-
-			_yawrate = rates(0);
-
-		} else {
-			_yawrate = rates(2);
-		}
+		_yawrate = rates(2);
 
 		const Eulerf euler_angles(R);
 		_pitch = euler_angles(1);
@@ -712,12 +694,6 @@ FixedwingPositionControl::updateManualTakeoffStatus()
 void
 FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 {
-	/* only run position controller in fixed-wing mode and during transitions for VTOL */
-	if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING && !_vehicle_status.in_transition_mode) {
-		_control_mode_current = FW_POSCTRL_MODE_OTHER;
-		return; // do not publish the setpoint
-	}
-
 	FW_POSCTRL_MODE commanded_position_control_mode = _control_mode_current;
 
 	_skipping_takeoff_detection = false;
@@ -731,40 +707,25 @@ FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 
 		if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) {
 
-			if (_vehicle_status.is_vtol && _vehicle_status.in_transition_mode) {
-				_control_mode_current = FW_POSCTRL_MODE_AUTO;
+			_control_mode_current = FW_POSCTRL_MODE_AUTO_TAKEOFF;
 
-				// in this case we want the waypoint handled as a position setpoint -- a submode in control_auto()
-				_pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
-
-			} else {
-				_control_mode_current = FW_POSCTRL_MODE_AUTO_TAKEOFF;
-
-				if (commanded_position_control_mode != FW_POSCTRL_MODE_AUTO_TAKEOFF && !_landed) {
-					// skip takeoff detection when switching from any other mode, auto or manual,
-					// while already in air.
-					// TODO: find a better place for / way of doing this
-					_skipping_takeoff_detection = true;
-				}
+			if (commanded_position_control_mode != FW_POSCTRL_MODE_AUTO_TAKEOFF && !_landed) {
+				// skip takeoff detection when switching from any other mode, auto or manual,
+				// while already in air.
+				// TODO: find a better place for / way of doing this
+				_skipping_takeoff_detection = true;
 			}
 
 		} else if (_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
 
-			if (!_vehicle_status.in_transition_mode) {
-
-				// Use _position_setpoint_previous_valid to determine if landing should be straight or circular.
-				// Straight landings are currently only possible in Missions, and there the previous WP
-				// is valid, and circular ones are used outside of Missions, as the land mode sets prev_valid=false.
-				if (_position_setpoint_previous_valid) {
-					_control_mode_current = FW_POSCTRL_MODE_AUTO_LANDING_STRAIGHT;
-
-				} else {
-					_control_mode_current = FW_POSCTRL_MODE_AUTO_LANDING_CIRCULAR;
-				}
+			// Use _position_setpoint_previous_valid to determine if landing should be straight or circular.
+			// Straight landings are currently only possible in Missions, and there the previous WP
+			// is valid, and circular ones are used outside of Missions, as the land mode sets prev_valid=false.
+			if (_position_setpoint_previous_valid) {
+				_control_mode_current = FW_POSCTRL_MODE_AUTO_LANDING_STRAIGHT;
 
 			} else {
-				// in this case we want the waypoint handled as a position setpoint -- a submode in control_auto()
-				_pos_sp_triplet.current.type = position_setpoint_s::SETPOINT_TYPE_POSITION;
+				_control_mode_current = FW_POSCTRL_MODE_AUTO_LANDING_CIRCULAR;
 			}
 
 		} else {
@@ -784,8 +745,7 @@ FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 			_time_in_fixed_bank_loiter = now;
 		}
 
-		if (hrt_elapsed_time(&_time_in_fixed_bank_loiter) < (_param_nav_gpsf_lt.get() * 1_s)
-		    && !_vehicle_status.in_transition_mode) {
+		if (hrt_elapsed_time(&_time_in_fixed_bank_loiter) < (_param_nav_gpsf_lt.get() * 1_s) ) {
 			if (commanded_position_control_mode != FW_POSCTRL_MODE_AUTO_ALTITUDE) {
 				// Need to init because last loop iteration was in a different mode
 				events::send(events::ID("fixedwing_position_control_fb_loiter"), events::Log::Critical,
@@ -795,7 +755,7 @@ FixedwingPositionControl::set_control_mode_current(const hrt_abstime &now)
 			_control_mode_current = FW_POSCTRL_MODE_AUTO_ALTITUDE;
 
 		} else {
-			if (commanded_position_control_mode != FW_POSCTRL_MODE_AUTO_CLIMBRATE && !_vehicle_status.in_transition_mode) {
+			if (commanded_position_control_mode != FW_POSCTRL_MODE_AUTO_CLIMBRATE) {
 				events::send(events::ID("fixedwing_position_control_descend"), events::Log::Critical, "Start descending");
 			}
 
@@ -848,46 +808,11 @@ FixedwingPositionControl::update_in_air_states(const hrt_abstime now)
 }
 
 void
-FixedwingPositionControl::move_position_setpoint_for_vtol_transition(position_setpoint_s &current_sp)
-{
-	// TODO: velocity, altitude, or just a heading hold position mode should be used for this, not position
-	// shifting hacks
-
-	if (_vehicle_status.in_transition_to_fw) {
-
-		if (!PX4_ISFINITE(_transition_waypoint(0))) {
-			double lat_transition, lon_transition;
-
-			// Create a virtual waypoint HDG_HOLD_DIST_NEXT meters in front of the vehicle which the path navigation controller can track
-			// during the transition. Use the current yaw setpoint to determine the transition heading, as that one in turn
-			// is set to the transition heading by Navigator, or current yaw if setpoint is not valid.
-			const float transition_heading = PX4_ISFINITE(current_sp.yaw) ? current_sp.yaw : _yaw;
-			waypoint_from_heading_and_distance(_current_latitude, _current_longitude, transition_heading, HDG_HOLD_DIST_NEXT,
-							   &lat_transition,
-							   &lon_transition);
-
-			_transition_waypoint(0) = lat_transition;
-			_transition_waypoint(1) = lon_transition;
-		}
-
-
-		current_sp.lat = _transition_waypoint(0);
-		current_sp.lon = _transition_waypoint(1);
-
-	} else {
-		/* reset transition waypoint, will be set upon entering front transition */
-		_transition_waypoint(0) = static_cast<double>(NAN);
-		_transition_waypoint(1) = static_cast<double>(NAN);
-	}
-}
-
-void
 FixedwingPositionControl::control_auto(const float control_interval, const Vector2d &curr_pos,
 				       const Vector2f &ground_speed, const position_setpoint_s &pos_sp_prev, const position_setpoint_s &pos_sp_curr,
 				       const position_setpoint_s &pos_sp_next)
 {
 	position_setpoint_s current_sp = pos_sp_curr;
-	move_position_setpoint_for_vtol_transition(current_sp);
 
 	const uint8_t position_sp_type = handle_setpoint_type(current_sp);
 
@@ -931,9 +856,7 @@ FixedwingPositionControl::control_auto(const float control_interval, const Vecto
 	/* Copy thrust and pitch values from tecs */
 	_att_sp.pitch_body = get_tecs_pitch();
 
-	if (!_vehicle_status.in_transition_to_fw) {
-		publishLocalPositionSetpoint(current_sp);
-	}
+	publishLocalPositionSetpoint(current_sp);
 }
 
 void
@@ -1022,8 +945,7 @@ FixedwingPositionControl::handle_setpoint_type(const position_setpoint_s &pos_sp
 			// Achieve position setpoint altitude via loiter when laterally close to WP.
 			// Detect if system has switchted into a Loiter before (check _position_sp_type), and in that
 			// case remove the dist_xy check (not switch out of Loiter until altitude is reached).
-			if ((!_vehicle_status.in_transition_mode) && (dist >= 0.f)
-			    && (dist_z > _param_nav_fw_alt_rad.get())
+			if ((dist >= 0.f) && (dist_z > _param_nav_fw_alt_rad.get())
 			    && (dist_xy < acc_rad || _position_sp_type == position_setpoint_s::SETPOINT_TYPE_LOITER)) {
 
 				// SETPOINT_TYPE_POSITION -> SETPOINT_TYPE_LOITER
@@ -1514,9 +1436,7 @@ FixedwingPositionControl::control_auto_takeoff(const hrt_abstime &now, const flo
 
 	_att_sp.roll_body = constrainRollNearGround(_att_sp.roll_body, _current_altitude, _takeoff_ground_alt);
 
-	if (!_vehicle_status.in_transition_to_fw) {
-		publishLocalPositionSetpoint(pos_sp_curr);
-	}
+	publishLocalPositionSetpoint(pos_sp_curr);
 }
 
 void
@@ -1739,9 +1659,7 @@ FixedwingPositionControl::control_auto_landing_straight(const hrt_abstime &now, 
 	// deploy gear as soon as we're in land mode, if not already done before
 	_new_landing_gear_position = landing_gear_s::GEAR_DOWN;
 
-	if (!_vehicle_status.in_transition_to_fw) {
-		publishLocalPositionSetpoint(pos_sp_curr);
-	}
+	publishLocalPositionSetpoint(pos_sp_curr);
 
 	landing_status_publish();
 }
@@ -1941,9 +1859,7 @@ FixedwingPositionControl::control_auto_landing_circular(const hrt_abstime &now, 
 	_flaps_setpoint = _param_fw_flaps_lnd_scl.get();
 	_spoilers_setpoint = _param_fw_spoilers_lnd.get();
 
-	if (!_vehicle_status.in_transition_to_fw) {
-		publishLocalPositionSetpoint(pos_sp_curr);
-	}
+	publishLocalPositionSetpoint(pos_sp_curr);
 
 	landing_status_publish();
 	publishOrbitStatus(pos_sp_curr);
@@ -2408,12 +2324,7 @@ FixedwingPositionControl::Run()
 				_att_sp.timestamp = hrt_absolute_time();
 				_attitude_sp_pub.publish(_att_sp);
 
-				// only publish status in full FW mode
-				if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING
-				    || _vehicle_status.in_transition_mode) {
-					status_publish();
-
-				}
+				status_publish();
 			}
 		}
 
@@ -2524,43 +2435,6 @@ FixedwingPositionControl::tecs_update_pitch_throttle(const float control_interva
 		bool disable_underspeed_detection, float hgt_rate_sp)
 {
 	_tecs_is_running = true;
-
-	// do not run TECS if vehicle is a VTOL and we are in rotary wing mode or in transition
-	// (it should also not run during VTOL blending because airspeed is too low still)
-	if (_vehicle_status.is_vtol) {
-		if (_vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING || _vehicle_status.in_transition_mode) {
-			_tecs_is_running = false;
-		}
-
-		if (_vehicle_status.in_transition_mode) {
-			// we're in transition
-			_was_in_transition = true;
-
-			// set this to transition airspeed to init tecs correctly
-			if (_param_fw_arsp_mode.get() == 1 && PX4_ISFINITE(_param_airspeed_trans)) {
-				// some vtols fly without airspeed sensor
-				_airspeed_after_transition = _param_airspeed_trans;
-
-			} else {
-				_airspeed_after_transition = _airspeed;
-			}
-
-			_airspeed_after_transition = constrain(_airspeed_after_transition, _param_fw_airspd_min.get(),
-							       _param_fw_airspd_max.get());
-
-		} else if (_was_in_transition) {
-			// after transition we ramp up desired airspeed from the speed we had coming out of the transition
-			_airspeed_after_transition += control_interval * 2.0f; // increase 2m/s
-
-			if (_airspeed_after_transition < airspeed_sp && _airspeed < airspeed_sp) {
-				airspeed_sp = max(_airspeed_after_transition, _airspeed);
-
-			} else {
-				_was_in_transition = false;
-				_airspeed_after_transition = 0.0f;
-			}
-		}
-	}
 
 	if (!_tecs_is_running) {
 		// next time we run TECS we should reinitialize states
@@ -2993,15 +2867,15 @@ void FixedwingPositionControl::navigateBearing(const matrix::Vector2f &vehicle_p
 
 int FixedwingPositionControl::task_spawn(int argc, char *argv[])
 {
-	bool vtol = false;
+	bool virtual_setpoint = false;
 
 	if (argc > 1) {
-		if (strcmp(argv[1], "vtol") == 0) {
-			vtol = true;
+		if (strcmp(argv[1], "virtual") == 0) {
+			virtual_setpoint = true;
 		}
 	}
 
-	FixedwingPositionControl *instance = new FixedwingPositionControl(vtol);
+	FixedwingPositionControl *instance = new FixedwingPositionControl(virtual_setpoint);
 
 	if (instance) {
 		_object.store(instance);
@@ -3042,7 +2916,7 @@ fw_pos_control is the fixed-wing position controller.
 
 	PRINT_MODULE_USAGE_NAME("fw_pos_control", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_ARG("vtol", "VTOL mode", true);
+	PRINT_MODULE_USAGE_ARG("virtual", "publish virtual setpoints", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

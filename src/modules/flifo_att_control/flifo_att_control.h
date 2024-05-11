@@ -68,6 +68,7 @@
 
 #include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
+#include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_thrust_setpoint.h>
 #include <uORB/topics/vehicle_torque_setpoint.h>
 
@@ -99,21 +100,25 @@ private:
 	uORB::SubscriptionInterval 	_parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uORB::Subscription 					_vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
-	uORB::Subscription 					_virtual_attitude_setpoint_sub{ORB_ID(mc_virtual_attitude_setpoint)};
+	uORB::Subscription 					_virtual_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint_virtual_mc)};
+	uORB::Subscription 					_virtual_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint_virtual_mc)};
 	uORB::SubscriptionCallbackWorkItem 	_virtual_thrust_setpoint_sub{this, ORB_ID(vehicle_thrust_setpoint_virtual_mc)};
 	uORB::SubscriptionCallbackWorkItem  _virtual_torque_setpoint_sub{this, ORB_ID(vehicle_torque_setpoint_virtual_mc)};
 
 	uORB::Publication<vehicle_attitude_setpoint_s> 	_vehicle_attitude_setpoint_pub{ORB_ID(vehicle_attitude_setpoint)};
+	uORB::Publication<vehicle_rates_setpoint_s> 	_vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};
 	uORB::Publication<vehicle_thrust_setpoint_s>	_vehicle_thrust_setpoint_pub{ORB_ID(vehicle_thrust_setpoint)};
 	uORB::Publication<vehicle_torque_setpoint_s>	_vehicle_torque_setpoint_pub{ORB_ID(vehicle_torque_setpoint)};
 	uORB::Publication<flifo_status_s>				_flifo_status_pub{ORB_ID(flifo_status)};
 
 	vehicle_attitude_s				_vehicle_attitude{};
 	vehicle_attitude_setpoint_s 	_virtual_attitude_setpoint{};
+	vehicle_rates_setpoint_s		_virtual_rates_setpoint{};
 	vehicle_thrust_setpoint_s		_virtual_thrust_setpoint{};
 	vehicle_torque_setpoint_s		_virtual_torque_setpoint{};
 
 	vehicle_attitude_setpoint_s		_vehicle_attitude_setpoint{};
+	vehicle_rates_setpoint_s		_vehicle_rates_setpoint{};
 	vehicle_thrust_setpoint_s		_vehicle_thrust_setpoint{};
 	vehicle_torque_setpoint_s		_vehicle_torque_setpoint{};
 	flifo_status_s 					_flifo_status{};
@@ -137,6 +142,7 @@ private:
 
 	void update_attitude();
 	void update_attitude_setpoint();
+	void update_rates_setpoint();
 	void update_thrust_setpoint();
 	void update_torque_setpoint();
 

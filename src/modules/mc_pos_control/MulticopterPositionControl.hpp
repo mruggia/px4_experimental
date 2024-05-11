@@ -71,7 +71,7 @@ class MulticopterPositionControl : public ModuleBase<MulticopterPositionControl>
 	public ModuleParams, public px4::ScheduledWorkItem
 {
 public:
-	MulticopterPositionControl(bool vtol = false);
+	MulticopterPositionControl(bool virtual_setpoint = false);
 	~MulticopterPositionControl() override;
 
 	/** @see ModuleBase */

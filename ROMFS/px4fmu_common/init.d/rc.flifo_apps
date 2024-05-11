@@ -19,10 +19,9 @@ control_allocator start
 
 flifo_att_control start
 
-# vtol parameter is used to trigger virtual topics. flifo is not vtol.
-mc_rate_control start vtol
-mc_att_control start vtol
-mc_pos_control start vtol
+mc_rate_control start virtual
+mc_att_control start virtual
+mc_pos_control start virtual
 
 if param greater -s MC_AT_EN 0
 then

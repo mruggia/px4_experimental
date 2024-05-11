@@ -63,7 +63,7 @@ class MulticopterAttitudeControl : public ModuleBase<MulticopterAttitudeControl>
 	public px4::WorkItem
 {
 public:
-	MulticopterAttitudeControl(bool vtol = false);
+	MulticopterAttitudeControl(bool virtual_setpoint = false);
 	~MulticopterAttitudeControl() override;
 
 	/** @see ModuleBase */
@@ -101,11 +101,10 @@ private:
 	uORB::Subscription _vehicle_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint)};
 	uORB::Subscription _vehicle_control_mode_sub{ORB_ID(vehicle_control_mode)};
 	uORB::Subscription _vehicle_local_position_sub{ORB_ID(vehicle_local_position)};
-	uORB::Subscription _vehicle_status_sub{ORB_ID(vehicle_status)};
 
 	uORB::SubscriptionCallbackWorkItem _vehicle_attitude_sub{this, ORB_ID(vehicle_attitude)};
 
-	uORB::Publication<vehicle_rates_setpoint_s>     _vehicle_rates_setpoint_pub{ORB_ID(vehicle_rates_setpoint)};    /**< rate setpoint publication */
+	uORB::Publication<vehicle_rates_setpoint_s>     _vehicle_rates_setpoint_pub;
 	uORB::Publication<vehicle_attitude_setpoint_s>  _vehicle_attitude_setpoint_pub;
 
 	manual_control_setpoint_s       _manual_control_setpoint {};    /**< manual control setpoint */
@@ -127,9 +126,6 @@ private:
 	bool _reset_yaw_sp{true};
 	bool _heading_good_for_control{true}; ///< initialized true to have heading lock when local position never published
 	bool _vehicle_type_rotary_wing{true};
-	bool _vtol{false};
-	bool _vtol_tailsitter{false};
-	bool _vtol_in_transition_mode{false};
 
 	uint8_t _quat_reset_counter{0};
 

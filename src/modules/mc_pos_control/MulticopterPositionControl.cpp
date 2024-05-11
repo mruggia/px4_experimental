@@ -41,11 +41,11 @@
 
 using namespace matrix;
 
-MulticopterPositionControl::MulticopterPositionControl(bool vtol) :
+MulticopterPositionControl::MulticopterPositionControl(bool virtual_setpoint) :
 	SuperBlock(nullptr, "MPC"),
 	ModuleParams(nullptr),
 	ScheduledWorkItem(MODULE_NAME, px4::wq_configurations::nav_and_controllers),
-	_vehicle_attitude_setpoint_pub(vtol ? ORB_ID(mc_virtual_attitude_setpoint) : ORB_ID(vehicle_attitude_setpoint)),
+	_vehicle_attitude_setpoint_pub(virtual_setpoint ? ORB_ID(vehicle_attitude_setpoint_virtual_mc) : ORB_ID(vehicle_attitude_setpoint)),
 	_vel_x_deriv(this, "VELD"),
 	_vel_y_deriv(this, "VELD"),
 	_vel_z_deriv(this, "VELD")
@@ -634,15 +634,15 @@ trajectory_setpoint_s MulticopterPositionControl::generateFailsafeSetpoint(const
 
 int MulticopterPositionControl::task_spawn(int argc, char *argv[])
 {
-	bool vtol = false;
+	bool virtual_setpoint = false;
 
 	if (argc > 1) {
-		if (strcmp(argv[1], "vtol") == 0) {
-			vtol = true;
+		if (strcmp(argv[1], "virtual") == 0) {
+			virtual_setpoint = true;
 		}
 	}
 
-	MulticopterPositionControl *instance = new MulticopterPositionControl(vtol);
+	MulticopterPositionControl *instance = new MulticopterPositionControl(virtual_setpoint);
 
 	if (instance) {
 		_object.store(instance);
@@ -687,7 +687,7 @@ logging.
 
 	PRINT_MODULE_USAGE_NAME("mc_pos_control", "controller");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_ARG("vtol", "VTOL mode", true);
+	PRINT_MODULE_USAGE_ARG("virtual", "publish virtual setpoints", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;

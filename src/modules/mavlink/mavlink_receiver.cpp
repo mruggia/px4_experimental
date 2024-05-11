@@ -1562,16 +1562,7 @@ MavlinkReceiver::handle_message_set_attitude_target(mavlink_message_t *msg)
 			// Publish attitude setpoint only once in OFFBOARD
 			if (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
 				attitude_setpoint.timestamp = hrt_absolute_time();
-
-				if (vehicle_status.is_vtol && (vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING)) {
-					_mc_virtual_att_sp_pub.publish(attitude_setpoint);
-
-				} else if (vehicle_status.is_vtol && (vehicle_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_FIXED_WING)) {
-					_fw_virtual_att_sp_pub.publish(attitude_setpoint);
-
-				} else {
-					_att_sp_pub.publish(attitude_setpoint);
-				}
+				_att_sp_pub.publish(attitude_setpoint);
 			}
 
 		}
