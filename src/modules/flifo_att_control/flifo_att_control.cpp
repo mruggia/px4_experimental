@@ -153,32 +153,13 @@ void FlifoAttitudeControl::Run()
 
 	perf_begin(_loop_perf);
 	perf_count(_loop_interval_perf);
+	hrt_abstime now = hrt_absolute_time();
 
 	poll_parameters();
 	poll_action_request();
 	poll_vehicle_cmd();
 
-	hrt_abstime now = hrt_absolute_time();
-	float dt = (now - _last_transition) / 1e6f;
-	if (dt < _param_flifo_spk_tme.get()) {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_SPIKE;
-		_flifo_flip.progress = dt/_param_flifo_spk_tme.get();
-	} else if (dt < _param_flifo_spk_tme.get() + _param_flifo_rot_tme.get()*0.5f) {
-		dt = dt - _param_flifo_spk_tme.get();
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_PITCH_UP;
-		_flifo_flip.progress = dt/(_param_flifo_rot_tme.get()*0.5f);
-	} else if (dt < _param_flifo_spk_tme.get() + _param_flifo_rot_tme.get()*1.0f) {
-		dt = dt - _param_flifo_spk_tme.get() - _param_flifo_rot_tme.get()*0.5f;
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_PITCH_DOWN;
-		_flifo_flip.progress = dt/(_param_flifo_rot_tme.get()*0.5f);
-	} else if (dt < _param_flifo_spk_tme.get() + _param_flifo_rot_tme.get() + _param_flifo_stb_tme.get()) { 
-		dt = dt - _param_flifo_spk_tme.get() - _param_flifo_rot_tme.get();
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_STABILIZE;
-		_flifo_flip.progress = dt/_param_flifo_stb_tme.get();
-	} else {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_NOFLIP;
-		_flifo_flip.progress = 0.0f;
-	}
+	update_flip_setpoint();
 
 	if (_vehicle_attitude_sub.update(&_vehicle_attitude)) {
 		update_attitude();
@@ -276,8 +257,62 @@ void FlifoAttitudeControl::_set_inv(bool is_inv)
 	}
 }
 
+
 //##############################################################################
 
+
+void FlifoAttitudeControl::update_flip_setpoint()
+{
+	float t1, t2, t3, t4, t5;
+	t1 = _param_flifo_spk_tme.get();
+	t5 = t1 + _param_flifo_rot_tme.get();
+	t3 = t1 + _param_flifo_rot_tme.get()/2.0f;
+	t2 = t1 + _param_flifo_rot_acc.get()*(t5-t1)/2.0f;
+	t4 = t5 - (t2-t1);
+	float vmax, amax;
+	vmax = M_PI_F / (t4-t1);
+	amax = vmax / (t2-t1);
+	float p1, p2, p3, p4, p5;
+	p1 = 0.0f;
+	p2 = vmax/2.0f * (t2-t1);
+	p3 = M_PI_F/2.0f;
+	p4 = M_PI_F-p2;
+	p5 = M_PI_F;
+
+	float dt = (hrt_absolute_time() - _last_transition) / 1e6f;
+	if (dt < t1) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_SPIKE;
+		_flifo_flip.ang = 0.0f;
+		_flifo_flip.vel = 0.0f;
+		_flifo_flip.acc = 0.0f;
+	} else if (dt < t2) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_ACCEL;
+		_flifo_flip.ang = p1 + 0.5f*amax*(dt-t1)*(dt-t1);
+		_flifo_flip.vel = amax*(dt-t1);
+		_flifo_flip.acc = amax;
+	} else if (dt < t3) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_UP;
+		_flifo_flip.ang = p2 + vmax*(dt-t2);
+		_flifo_flip.vel = vmax;
+		_flifo_flip.acc = 0.0f;
+	} else if (dt < t4) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_DOWN;
+		_flifo_flip.ang = p3 + vmax*(dt-t3);
+		_flifo_flip.vel = vmax;
+		_flifo_flip.acc = 0.0f;
+	} else if (dt < t5) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_DECEL;
+		_flifo_flip.ang = p4 + vmax*(dt-t4) - 0.5f*amax*(dt-t4)*(dt-t4);
+		_flifo_flip.vel = vmax - amax*(dt-t4);
+		_flifo_flip.acc = -amax;
+	} else {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_NOFLIP;
+		_flifo_flip.ang = p5;
+		_flifo_flip.vel = 0.0f;
+		_flifo_flip.acc = 0.0f;
+	}
+	
+}
 
 void FlifoAttitudeControl::update_attitude()
 {
@@ -302,42 +337,6 @@ void FlifoAttitudeControl::update_attitude()
 
 void FlifoAttitudeControl::update_attitude_setpoint()
 {
-	float pitch_flifo = 0.0f;
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU) {
-		pitch_flifo = 0.0f;
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD) {
-		pitch_flifo = M_PI_F;
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_SPIKE) {
-			pitch_flifo = 0.0f;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_UP) {
-			pitch_flifo = _flifo_flip.progress * M_PI_2_F;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_DOWN) {
-			pitch_flifo = _flifo_flip.progress * M_PI_2_F + M_PI_2_F;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_STABILIZE) {
-			pitch_flifo = M_PI_F;
-		} else { // (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP)
-			pitch_flifo = M_PI_F;
-			_set_status(flifo_status_s::FLIFO_STATE_USD);
-		}
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_SPIKE) {
-			pitch_flifo = M_PI_F;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_UP) {
-			pitch_flifo = (1.0f-_flifo_flip.progress) * M_PI_2_F + M_PI_2_F;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_DOWN) {
-			pitch_flifo = (1.0f-_flifo_flip.progress) * M_PI_2_F;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_STABILIZE) {
-			pitch_flifo = 0.0f;
-		} else { // (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP)
-			pitch_flifo = 0.0f;
-			_set_status(flifo_status_s::FLIFO_STATE_RSU);
-		}
-	}
-
 	_vehicle_attitude_setpoint = _virtual_attitude_setpoint;
 	Quatf q_sp = Quatf(_vehicle_attitude_setpoint.q_d);
 	Eulerf euler_sp = Eulerf(q_sp);
@@ -345,17 +344,34 @@ void FlifoAttitudeControl::update_attitude_setpoint()
 	float pitch_sp = euler_sp(1);
 	float yaw_sp   = euler_sp(2);
 
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD || _flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		pitch_sp = 0.0;
+	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU) {
+		pitch_sp = pitch_sp;
+
+	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD) {
+		pitch_sp = pitch_sp + M_PI_F;
+
+	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+		pitch_sp = _flifo_flip.ang;
+		roll_sp = 0.0f;
+
+		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP) {
+			_set_status(flifo_status_s::FLIFO_STATE_USD);
+		}
+
+	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
+		pitch_sp = M_PI_F - _flifo_flip.ang;
+		roll_sp = 0.0f;
+
+		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP) {
+			_set_status(flifo_status_s::FLIFO_STATE_RSU);
+		}
 	}
 
 	if (!_flifo_status.is_inv) {
 		roll_sp  = roll_sp;
-		pitch_sp = pitch_sp + pitch_flifo;
 		yaw_sp   = yaw_sp;
 	} else {
 		roll_sp  = -roll_sp;
-		pitch_sp = pitch_sp + pitch_flifo;
 		yaw_sp   = yaw_sp + M_PI_F;
 	}
 
@@ -371,7 +387,39 @@ void FlifoAttitudeControl::update_attitude_setpoint()
 void FlifoAttitudeControl::update_rates_setpoint()
 {
 	_vehicle_rates_setpoint = _virtual_rates_setpoint;
+
+	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+		_vehicle_rates_setpoint.pitch = _vehicle_rates_setpoint.pitch + _flifo_flip.vel;
+		
+	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
+		_vehicle_rates_setpoint.pitch = _vehicle_rates_setpoint.pitch - _flifo_flip.vel;
+	}
 }
+
+void FlifoAttitudeControl::update_torque_setpoint()
+{
+	_vehicle_torque_setpoint = _virtual_torque_setpoint;
+
+	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] + _flifo_flip.acc*_param_flifo_rot_ff.get()/100.0f;
+
+	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
+		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] - _flifo_flip.acc*_param_flifo_rot_ff.get()/100.0f;
+	}
+
+	if (_flifo_status.is_inv) {
+		_vehicle_torque_setpoint.xyz[0] = _vehicle_torque_setpoint.xyz[0] / _param_mc_rollrate_k.get()  * _param_flifo_rollrate_k.get();
+		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] / _param_mc_pitchrate_k.get() * _param_flifo_pitchrate_k.get();
+		_vehicle_torque_setpoint.xyz[2] = _vehicle_torque_setpoint.xyz[2] / _param_mc_yawrate_k.get()   * _param_flifo_yawrate_k.get();
+	}
+
+	if (!_is_attitude_valid) {
+		_vehicle_torque_setpoint.xyz[0] = 0.0f;
+		_vehicle_torque_setpoint.xyz[1] = 0.0f;
+		_vehicle_torque_setpoint.xyz[2] = 0.0f;
+	}
+}
+
 
 void FlifoAttitudeControl::update_thrust_setpoint()
 {
@@ -382,19 +430,15 @@ void FlifoAttitudeControl::update_thrust_setpoint()
 	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
 		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_SPIKE) {
 			thrust_sp = _param_flifo_spk_thr1.get() * _last_transition_throttle;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_UP || _flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_DOWN) {
-			thrust_sp = _param_flifo_rot_thr.get() * _last_transition_throttle;
 		} else {
-			thrust_sp = _virtual_thrust_setpoint.xyz[2];
+			thrust_sp = _param_flifo_rot_thr.get() * _last_transition_throttle;
 		}
 
 	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
 		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_SPIKE) {
 			thrust_sp = _param_flifo_spk_thr2.get() * _last_transition_throttle;
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_UP || _flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_DOWN) {
-			thrust_sp = _param_flifo_rot_thr.get() * _last_transition_throttle;
 		} else {
-			thrust_sp = _virtual_thrust_setpoint.xyz[2];
+			thrust_sp = _param_flifo_rot_thr.get() * _last_transition_throttle;
 		}
 	}
 
@@ -409,40 +453,4 @@ void FlifoAttitudeControl::update_thrust_setpoint()
 	_vehicle_thrust_setpoint = _virtual_thrust_setpoint;
 	_vehicle_thrust_setpoint.xyz[2] = thrust_sp;
 
-}
-
-void FlifoAttitudeControl::update_torque_setpoint()
-{
-	_vehicle_torque_setpoint = _virtual_torque_setpoint;
-
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_UP) {
-			_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_k.get() + _param_flifo_rot_ff1.get();
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_DOWN) {
-			_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_k.get() - _param_flifo_rot_ff1.get();
-		} else {
-			_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_k.get();
-		}
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_UP) {
-			_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_k.get() - _param_flifo_rot_ff2.get();
-		} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_PITCH_DOWN) {
-			_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_k.get() + _param_flifo_rot_ff2.get();
-		} else {
-			_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_k.get();
-		}
-	}
-
-	if (_flifo_status.is_inv) {
-		_vehicle_torque_setpoint.xyz[0] = _vehicle_torque_setpoint.xyz[0] / _param_mc_rollrate_k.get()  * _param_flifo_rollrate_k.get();
-		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] / _param_mc_pitchrate_k.get() * _param_flifo_pitchrate_k.get();
-		_vehicle_torque_setpoint.xyz[2] = _vehicle_torque_setpoint.xyz[2] / _param_mc_yawrate_k.get()   * _param_flifo_yawrate_k.get();
-	}
-
-	if (!_is_attitude_valid) {
-		_vehicle_torque_setpoint.xyz[0] = 0.0;
-		_vehicle_torque_setpoint.xyz[1] = 0.0;
-		_vehicle_torque_setpoint.xyz[2] = 0.0;
-	}
 }

@@ -61,27 +61,22 @@ PARAM_DEFINE_FLOAT(FLIFO_PTCHRATE_K, 1.0f);
 PARAM_DEFINE_FLOAT(FLIFO_ROLLRATE_K, 1.0f);
 
 
+
+/**
+ * Hover throttle correction independent of geometry when up-side-down
+ *
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_THR_CORR, 1.0f);
+
+
+
 /**
  * Duration of throttle spike before transition [s]
  * 
  * @group FLIFO Control
  */
 PARAM_DEFINE_FLOAT(FLIFO_SPK_TME, 0.0f);
-
-/**
- * Duration of flip transition [s]
- * 
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_TME, 0.0f);
-
-/**
- * Duration of stabilization after transition [s]
- * 
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_STB_TME, 0.0f);
-
 
 /**
  * factor of hover throttle spike before transition when right-side-up
@@ -97,38 +92,32 @@ PARAM_DEFINE_FLOAT(FLIFO_SPK_THR1, 1.0f);
  */
 PARAM_DEFINE_FLOAT(FLIFO_SPK_THR2, 1.0f);
 
+
+
+/**
+ * Duration of flip transition [s]
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_TME, 0.0f);
+
+/**
+ * Percentage of flip transition spent in accel/decel
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_ACC, 0.0f);
+
+/**
+ * Feedforward transition pitch torque during accel/decel
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_FF, 0.0f);
+
 /**
  * Factor of hover throttle during transition
  * 
  * @group FLIFO Control
  */
 PARAM_DEFINE_FLOAT(FLIFO_ROT_THR, 1.0f);
-
-
-/**
- * Transition pitch K gain factor
- *
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_K, 1.0f);
-
-/**
- * Transition feedforward pitch torque rsu->usd
- * 
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_FF1, 0.0f);
-
-/**
- * Transition feedforward pitch torque usd->rsu
- * 
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_FF2, 0.0f);
-
-/**
- * Hover throttle correction independent of geometry when up-side-down
- *
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_THR_CORR, 1.0f);

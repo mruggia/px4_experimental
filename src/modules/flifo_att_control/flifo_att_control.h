@@ -131,15 +131,18 @@ private:
 	bool _is_attitude_valid;
 
 	struct _flifo_flip_s {
-		enum phases { FLIFO_SPIKE, FLIFO_PITCH_UP, FLIFO_PITCH_DOWN, FLIFO_STABILIZE, FLIFO_NOFLIP};
+		enum phases { FLIFO_SPIKE, FLIFO_ACCEL, FLIFO_UP, FLIFO_DOWN, FLIFO_DECEL, FLIFO_NOFLIP};
 		phases phase = FLIFO_NOFLIP;
-		float progress = 0.0;
+		float ang = 0.0;
+		float vel = 0.0;
+		float acc = 0.0;
 	} _flifo_flip;
 
 	void poll_parameters();
 	void poll_vehicle_cmd();
 	void poll_action_request();
 
+	void update_flip_setpoint();
 	void update_attitude();
 	void update_attitude_setpoint();
 	void update_rates_setpoint();
@@ -158,14 +161,12 @@ private:
 		(ParamFloat<px4::params::MC_ROLLRATE_K>)    _param_mc_rollrate_k,
 
 		(ParamFloat<px4::params::FLIFO_SPK_TME>)	_param_flifo_spk_tme,
-		(ParamFloat<px4::params::FLIFO_ROT_TME>)	_param_flifo_rot_tme,
-		(ParamFloat<px4::params::FLIFO_STB_TME>)	_param_flifo_stb_tme,
 		(ParamFloat<px4::params::FLIFO_SPK_THR1>)	_param_flifo_spk_thr1,
 		(ParamFloat<px4::params::FLIFO_SPK_THR2>)	_param_flifo_spk_thr2,
-		(ParamFloat<px4::params::FLIFO_ROT_THR>)	_param_flifo_rot_thr,
-		(ParamFloat<px4::params::FLIFO_ROT_K>)		_param_flifo_rot_k,
-		(ParamFloat<px4::params::FLIFO_ROT_FF1>)	_param_flifo_rot_ff1,
-		(ParamFloat<px4::params::FLIFO_ROT_FF2>)	_param_flifo_rot_ff2
+		(ParamFloat<px4::params::FLIFO_ROT_TME>)	_param_flifo_rot_tme,
+		(ParamFloat<px4::params::FLIFO_ROT_ACC>)	_param_flifo_rot_acc,
+		(ParamFloat<px4::params::FLIFO_ROT_FF>)		_param_flifo_rot_ff,
+		(ParamFloat<px4::params::FLIFO_ROT_THR>)	_param_flifo_rot_thr
 	)
 
 };

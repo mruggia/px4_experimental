@@ -107,14 +107,12 @@ param set MC_ROLL_P         6.50
 
 # flifo transition control
 param set FLIFO_SPK_TME     0.15 	# duration of throttle spike before transition [s]
-param set FLIFO_ROT_TME     0.20 	# duration of flip transition [s]
-param set FLIFO_STB_TME     0.00 	# duration of stabilization after transition [s]
 param set FLIFO_SPK_THR1    1.35 	# factor of hover throttle spike before transition when right-side-up
 param set FLIFO_SPK_THR2    1.60 	# factor of hover throttle spike before transition when up-side-down
+param set FLIFO_ROT_TME     0.40 	# duration of flip transition [s]
+param set FLIFO_ROT_ACC     0.50 	# percentage of flip transition spent in accel/decel
+param set FLIFO_ROT_FF      1.00 	# feedforward transition pitch torque during accel/decel
 param set FLIFO_ROT_THR     0.80 	# factor of hover throttle during transition
-param set FLIFO_ROT_K       1.00 	# flip transition pitch K gain factor
-param set FLIFO_ROT_FF1     2.15 	# feedforward pitch torque during transition rsu-usd
-param set FLIFO_ROT_FF2     1.80 	# feedforward pitch torque during transition usd-rsu
 
 # maximum motor slew rate
 param set CA_R0_SLEW 0.006
