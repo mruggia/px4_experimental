@@ -94,21 +94,27 @@ bool ActuatorEffectivenessFlifo::getEffectivenessMatrix(Configuration &configura
 
 float ActuatorEffectivenessFlifo::getFlifoActuatorMin() 
 {	
+	float min;
 	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD || _flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		return -999.f/1000.f-FLT_EPSILON;	// equal to effective_output = 1
+		min = -999.f/1000.f-FLT_EPSILON;	// equal to effective_output = 1
 	} else if (!_flifo_status.is_inv) {
-		return 1.f/1000.f+FLT_EPSILON;		// equal to effective_output = 1001
+		min = 1.f/1000.f+FLT_EPSILON;		// equal to effective_output = 1001
+		min = min + _param_flifo_thr_min.get();
 	} else {
-		return -999.f/1000.f-FLT_EPSILON;	// equal to effective_output = 1
+		min = -999.f/1000.f-FLT_EPSILON;	// equal to effective_output = 1
 	}
+	return min;
 }
 float ActuatorEffectivenessFlifo::getFlifoActuatorMax()
 {
+	float max;
 	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD || _flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		return 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
+		max = 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
 	} else if (!_flifo_status.is_inv) {
-		return 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
+		max = 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
 	} else {
-		return -1.f/1000.f-FLT_EPSILON;		// equal to effective_output = 999
+		max = -1.f/1000.f-FLT_EPSILON;		// equal to effective_output = 999
+		max = max - _param_flifo_thr_min.get();
 	}
+	return max;
 }

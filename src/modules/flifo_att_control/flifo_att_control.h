@@ -67,6 +67,7 @@
 #include <uORB/topics/flifo_status.h>
 
 #include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/vehicle_attitude_setpoint.h>
 #include <uORB/topics/vehicle_rates_setpoint.h>
 #include <uORB/topics/vehicle_thrust_setpoint.h>
@@ -100,6 +101,8 @@ private:
 	uORB::SubscriptionInterval 	_parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uORB::Subscription 					_vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
+	uORB::Subscription 					_vehicle_rates_sub{ORB_ID(vehicle_angular_velocity)};
+
 	uORB::Subscription 					_virtual_attitude_setpoint_sub{ORB_ID(vehicle_attitude_setpoint_virtual_mc)};
 	uORB::Subscription 					_virtual_rates_setpoint_sub{ORB_ID(vehicle_rates_setpoint_virtual_mc)};
 	uORB::SubscriptionCallbackWorkItem 	_virtual_thrust_setpoint_sub{this, ORB_ID(vehicle_thrust_setpoint_virtual_mc)};
@@ -112,6 +115,8 @@ private:
 	uORB::Publication<flifo_status_s>				_flifo_status_pub{ORB_ID(flifo_status)};
 
 	vehicle_attitude_s				_vehicle_attitude{};
+	vehicle_angular_velocity_s 		_vehicle_rates{};
+
 	vehicle_attitude_setpoint_s 	_virtual_attitude_setpoint{};
 	vehicle_rates_setpoint_s		_virtual_rates_setpoint{};
 	vehicle_thrust_setpoint_s		_virtual_thrust_setpoint{};
@@ -131,19 +136,21 @@ private:
 	bool _is_attitude_valid;
 
 	struct _flifo_flip_s {
-		enum phases { FLIFO_SPIKE, FLIFO_ACCEL, FLIFO_UP, FLIFO_DOWN, FLIFO_DECEL, FLIFO_NOFLIP};
+		enum phases { FLIFO_SPIKE, FLIFO_ACCEL, FLIFO_FREE, FLIFO_DECEL, FLIFO_NOFLIP};
 		phases phase = FLIFO_NOFLIP;
-		float ang = 0.0;
-		float vel = 0.0;
-		float acc = 0.0;
+		float ang = 0.0f;
+		float vel = 0.0f;
+		float trq = 0.0f;
+		float frc = 0.0f;
 	} _flifo_flip;
 
 	void poll_parameters();
 	void poll_vehicle_cmd();
 	void poll_action_request();
 
-	void update_flip_setpoint();
 	void update_attitude();
+	void update_rates();
+	void update_flip_setpoint();
 	void update_attitude_setpoint();
 	void update_rates_setpoint();
 	void update_thrust_setpoint();
@@ -163,10 +170,16 @@ private:
 		(ParamFloat<px4::params::FLIFO_SPK_TME>)	_param_flifo_spk_tme,
 		(ParamFloat<px4::params::FLIFO_SPK_THR1>)	_param_flifo_spk_thr1,
 		(ParamFloat<px4::params::FLIFO_SPK_THR2>)	_param_flifo_spk_thr2,
+
+		(ParamInt<px4::params::FLIFO_ROT_CTRL>)		_param_flifo_rot_ctrl,
 		(ParamFloat<px4::params::FLIFO_ROT_TME>)	_param_flifo_rot_tme,
-		(ParamFloat<px4::params::FLIFO_ROT_ACC>)	_param_flifo_rot_acc,
-		(ParamFloat<px4::params::FLIFO_ROT_FF>)		_param_flifo_rot_ff,
-		(ParamFloat<px4::params::FLIFO_ROT_THR>)	_param_flifo_rot_thr
+		(ParamFloat<px4::params::FLIFO_ROT_THR>)	_param_flifo_rot_thr,
+		(ParamFloat<px4::params::FLIFO_ROT_X_ACC>)	_param_flifo_rot_x_acc,
+		(ParamFloat<px4::params::FLIFO_ROT_X_DEC>)	_param_flifo_rot_x_dec,
+		(ParamFloat<px4::params::FLIFO_ROT_T_ACC1>)	_param_flifo_rot_t_acc1,
+		(ParamFloat<px4::params::FLIFO_ROT_T_ACC2>)	_param_flifo_rot_t_acc2,
+		(ParamFloat<px4::params::FLIFO_ROT_T_DEC1>)	_param_flifo_rot_t_dec1,
+		(ParamFloat<px4::params::FLIFO_ROT_T_DEC2>)	_param_flifo_rot_t_dec2
 	)
 
 };

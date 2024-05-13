@@ -60,8 +60,6 @@ PARAM_DEFINE_FLOAT(FLIFO_PTCHRATE_K, 1.0f);
  */
 PARAM_DEFINE_FLOAT(FLIFO_ROLLRATE_K, 1.0f);
 
-
-
 /**
  * Hover throttle correction independent of geometry when up-side-down
  *
@@ -69,7 +67,12 @@ PARAM_DEFINE_FLOAT(FLIFO_ROLLRATE_K, 1.0f);
  */
 PARAM_DEFINE_FLOAT(FLIFO_THR_CORR, 1.0f);
 
-
+/**
+ * Minimum throttle to avoid arms oscillating
+ *
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_THR_MIN, 0.0f);
 
 /**
  * Duration of throttle spike before transition [s]
@@ -79,20 +82,25 @@ PARAM_DEFINE_FLOAT(FLIFO_THR_CORR, 1.0f);
 PARAM_DEFINE_FLOAT(FLIFO_SPK_TME, 0.0f);
 
 /**
- * factor of hover throttle spike before transition when right-side-up
+ * Factor of hover throttle spike before flip RSU->USD
  * 
  * @group FLIFO Control
  */
-PARAM_DEFINE_FLOAT(FLIFO_SPK_THR1, 1.0f);
+PARAM_DEFINE_FLOAT(FLIFO_SPK_THR1, 0.0f);
 
 /**
- * factor of hover throttle spike before transition when up-side-down
+ * Factor of hover throttle spike before flip USD->RSU
  * 
  * @group FLIFO Control
  */
-PARAM_DEFINE_FLOAT(FLIFO_SPK_THR2, 1.0f);
+PARAM_DEFINE_FLOAT(FLIFO_SPK_THR2, 0.0f);
 
-
+/**
+ * Active pitch control during flip
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_INT32(FLIFO_ROT_CTRL, 0);
 
 /**
  * Duration of flip transition [s]
@@ -102,22 +110,51 @@ PARAM_DEFINE_FLOAT(FLIFO_SPK_THR2, 1.0f);
 PARAM_DEFINE_FLOAT(FLIFO_ROT_TME, 0.0f);
 
 /**
- * Percentage of flip transition spent in accel/decel
- * 
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_ACC, 0.0f);
-
-/**
- * Feedforward transition pitch torque during accel/decel
- * 
- * @group FLIFO Control
- */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_FF, 0.0f);
-
-/**
  * Factor of hover throttle during transition
  * 
  * @group FLIFO Control
  */
-PARAM_DEFINE_FLOAT(FLIFO_ROT_THR, 1.0f);
+PARAM_DEFINE_FLOAT(FLIFO_ROT_THR, 0.0f);
+
+/**
+ * Percentage of flip transition spent accelerating
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_X_ACC, 0.0f);
+
+/**
+ * Percentage of flip transition spent decellerating
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_X_DEC, 0.0f);
+
+/**
+ * Feedforward flip torque when accelerating RSU->USD
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_T_ACC1, 0.0f);
+
+/**
+ * Feedforward flip torque when accelerating USD->RSU
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_T_ACC2, 0.0f);
+
+/**
+ * Feedforward flip torque when decellerating RSU->USD
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_T_DEC1, 0.0f);
+
+/**
+ * Feedforward flip torque when decellerating USD->RSU
+ * 
+ * @group FLIFO Control
+ */
+PARAM_DEFINE_FLOAT(FLIFO_ROT_T_DEC2, 0.0f);
+

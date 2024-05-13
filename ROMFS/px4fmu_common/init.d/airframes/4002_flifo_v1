@@ -79,6 +79,7 @@ param set MPC_THR_MIN       0.05 	# no minimum throttle required, since air-mode
 param set HTE_THR_RANGE     0.2 	# expected hover throttle range (maximal)
 param set MPC_THR_HOVER     0.43 	# hover throttle (right-side-up) (HQProp 3D 5x3.5x3)
 param set FLIFO_THR_CORR    0.70 	# up-side-down hover correction factor independent of geometry or props
+param set FLIFO_THR_MIN     0.2 	# minimum throttle to avoid arms oscillating
 
 # rate control (desired 1 Nm for given 1 rad/s error)
 param set FLIFO_YAWRATE_K   0.80 	# up-side-down K gain (PID same as in right-side-up)
@@ -107,22 +108,27 @@ param set MC_ROLL_P         6.50
 
 # flifo transition control
 param set FLIFO_SPK_TME     0.15 	# duration of throttle spike before transition [s]
-param set FLIFO_SPK_THR1    1.35 	# factor of hover throttle spike before transition when right-side-up
-param set FLIFO_SPK_THR2    1.60 	# factor of hover throttle spike before transition when up-side-down
+param set FLIFO_SPK_THR1    1.30 	# factor of hover throttle spike before flip RSU->USD
+param set FLIFO_SPK_THR2    1.60 	# factor of hover throttle spike before flip USD->RSU
+param set FLIFO_ROT_CTRL    0 		# active pitch control during flip
 param set FLIFO_ROT_TME     0.40 	# duration of flip transition [s]
-param set FLIFO_ROT_ACC     0.50 	# percentage of flip transition spent in accel/decel
-param set FLIFO_ROT_FF      1.00 	# feedforward transition pitch torque during accel/decel
-param set FLIFO_ROT_THR     0.80 	# factor of hover throttle during transition
+param set FLIFO_ROT_THR     1.00 	# factor of hover throttle during transition
+param set FLIFO_ROT_X_ACC   0.20 	# percentage of flip transition spent accelerating
+param set FLIFO_ROT_X_DEC   0.60 	# percentage of flip transition spent decellerating
+param set FLIFO_ROT_T_ACC1  0.60 	# feedforward flip torque when accelerating RSU->USD
+param set FLIFO_ROT_T_ACC2  0.40 	# feedforward flip torque when accelerating USD->RSU
+param set FLIFO_ROT_T_DEC1  1.20 	# feedforward flip torque when decellerating RSU->USD
+param set FLIFO_ROT_T_DEC2  1.30 	# feedforward flip torque when decellerating USD->RSU
 
 # maximum motor slew rate
-param set CA_R0_SLEW 0.006
-param set CA_R1_SLEW 0.006
-param set CA_R2_SLEW 0.006
-param set CA_R3_SLEW 0.006
-param set CA_R4_SLEW 0.006
-param set CA_R5_SLEW 0.006
-param set CA_R6_SLEW 0.006
-param set CA_R7_SLEW 0.006
+param set CA_R0_SLEW 0.005
+param set CA_R1_SLEW 0.005
+param set CA_R2_SLEW 0.005
+param set CA_R3_SLEW 0.005
+param set CA_R4_SLEW 0.005
+param set CA_R5_SLEW 0.005
+param set CA_R6_SLEW 0.005
+param set CA_R7_SLEW 0.005
 
 # propeller characteristics (right-side-up) (HQProp 3D 5x3.5x3)
 param set CA_ROTOR0_CT +13.10

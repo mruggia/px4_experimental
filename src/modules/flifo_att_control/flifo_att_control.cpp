@@ -165,6 +165,10 @@ void FlifoAttitudeControl::Run()
 		update_attitude();
 	}
 
+	if ( _vehicle_rates_sub.update(&_vehicle_rates)) {
+		update_rates();
+	}
+
 	if (_virtual_attitude_setpoint_sub.update(&_virtual_attitude_setpoint)) {
 		update_attitude_setpoint();
 		_vehicle_attitude_setpoint.timestamp = now;
@@ -260,60 +264,6 @@ void FlifoAttitudeControl::_set_inv(bool is_inv)
 
 //##############################################################################
 
-
-void FlifoAttitudeControl::update_flip_setpoint()
-{
-	float t1, t2, t3, t4, t5;
-	t1 = _param_flifo_spk_tme.get();
-	t5 = t1 + _param_flifo_rot_tme.get();
-	t3 = t1 + _param_flifo_rot_tme.get()/2.0f;
-	t2 = t1 + _param_flifo_rot_acc.get()*(t5-t1)/2.0f;
-	t4 = t5 - (t2-t1);
-	float vmax, amax;
-	vmax = M_PI_F / (t4-t1);
-	amax = vmax / (t2-t1);
-	float p1, p2, p3, p4, p5;
-	p1 = 0.0f;
-	p2 = vmax/2.0f * (t2-t1);
-	p3 = M_PI_F/2.0f;
-	p4 = M_PI_F-p2;
-	p5 = M_PI_F;
-
-	float dt = (hrt_absolute_time() - _last_transition) / 1e6f;
-	if (dt < t1) {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_SPIKE;
-		_flifo_flip.ang = 0.0f;
-		_flifo_flip.vel = 0.0f;
-		_flifo_flip.acc = 0.0f;
-	} else if (dt < t2) {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_ACCEL;
-		_flifo_flip.ang = p1 + 0.5f*amax*(dt-t1)*(dt-t1);
-		_flifo_flip.vel = amax*(dt-t1);
-		_flifo_flip.acc = amax;
-	} else if (dt < t3) {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_UP;
-		_flifo_flip.ang = p2 + vmax*(dt-t2);
-		_flifo_flip.vel = vmax;
-		_flifo_flip.acc = 0.0f;
-	} else if (dt < t4) {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_DOWN;
-		_flifo_flip.ang = p3 + vmax*(dt-t3);
-		_flifo_flip.vel = vmax;
-		_flifo_flip.acc = 0.0f;
-	} else if (dt < t5) {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_DECEL;
-		_flifo_flip.ang = p4 + vmax*(dt-t4) - 0.5f*amax*(dt-t4)*(dt-t4);
-		_flifo_flip.vel = vmax - amax*(dt-t4);
-		_flifo_flip.acc = -amax;
-	} else {
-		_flifo_flip.phase = _flifo_flip_s::FLIFO_NOFLIP;
-		_flifo_flip.ang = p5;
-		_flifo_flip.vel = 0.0f;
-		_flifo_flip.acc = 0.0f;
-	}
-	
-}
-
 void FlifoAttitudeControl::update_attitude()
 {
 	Quatf q = Quatf(_vehicle_attitude.q);
@@ -335,6 +285,136 @@ void FlifoAttitudeControl::update_attitude()
 	}
 }
 
+void FlifoAttitudeControl::update_rates() {
+	// pass
+}
+
+void FlifoAttitudeControl::update_flip_setpoint()
+{
+	// skip if not currently flipping
+	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD || _flifo_status.state == flifo_status_s::FLIFO_STATE_RSU) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_NOFLIP;
+		return;
+	}
+
+	// calculate key points in flip trajectory
+	float T, Xacc, Xdec;
+	T = _param_flifo_rot_tme.get();
+	Xacc = _param_flifo_rot_x_acc.get();
+	Xdec = _param_flifo_rot_x_dec.get();
+	float t1, t2, t3, t4;
+	t1 = _param_flifo_spk_tme.get();
+	t2 = t1 + Xacc*T;
+	t3 = t2 + (1.0f-Xacc-Xdec)*T;
+	t4 = t3 + Xdec*T;
+	float Vmax, Aacc, Adec;
+	Vmax = M_PI_F / T / ( Xacc/2.0f + Xdec/2.0f + (1.0f-Xacc-Xdec) );
+	Aacc = Vmax / (t2-t1);
+	Adec = Vmax / (t4-t3);
+	float p1, p2, p3, p4;
+	p1 = 0.0f;
+	p2 = p1 + Vmax/2.0f * (t2-t1);
+	p3 = p2 + Vmax      * (t3-t2);
+	p4 = p3 + Vmax/2.0f * (t4-t3);
+
+	// calculate current state
+	float t = (hrt_absolute_time() - _last_transition) / 1e6f;
+	Quatf q = Quatf(_vehicle_attitude.q);
+	Vector3f up = q.rotateVector(Vector3f(0.0f, 0.0f, 1.0f));
+	Eulerf e = Eulerf(q);
+	float p = e(1);
+	float dp = _vehicle_rates.xyz[1];
+	if (up(2)<0.0f) {
+		p = M_PI_F - p;
+	}
+	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
+		p = M_PI_F - p;
+		dp = -dp;
+	}
+
+	// calculate pitch angle/velocity setpoint in flip trajectory (based on time)
+	if (t < t1) {
+		_flifo_flip.ang = 0.0f;
+		_flifo_flip.vel = 0.0f;
+	} else if (t < t2) {
+		_flifo_flip.ang = p1 + 0.5f*Aacc*(t-t1)*(t-t1);
+		_flifo_flip.vel = Aacc*(t-t1);
+	} else if (t < t3) {
+		_flifo_flip.ang = p2 + Vmax*(t-t2);
+		_flifo_flip.vel = Vmax;
+	} else if (t < t4) {
+		_flifo_flip.ang = p3 + Vmax*(t-t3) - 0.5f*Adec*(t-t3)*(t-t3);
+		_flifo_flip.vel = Vmax - Adec*(t-t3);
+	} else {
+		_flifo_flip.ang = p4;
+		_flifo_flip.vel = 0.0f;
+	}
+
+	// calculate torque/thrust setpoint in flip trajectory (based on angle)
+	if (t < t1) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_SPIKE;
+		if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+			_flifo_flip.frc = _param_flifo_spk_thr1.get() * _last_transition_throttle;
+		} else { // (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU)
+			_flifo_flip.frc = _param_flifo_spk_thr2.get() * _last_transition_throttle;
+		}
+		_flifo_flip.trq = 0.0f;
+
+	} else if (p < p2) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_ACCEL;
+		_flifo_flip.frc = _param_flifo_rot_thr.get() * _last_transition_throttle;
+		if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+			_flifo_flip.trq = _param_flifo_rot_t_acc1.get();
+		} else { // (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU)
+			_flifo_flip.trq = _param_flifo_rot_t_acc2.get();
+		}
+		
+	} else if (p < p3) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_FREE;
+		_flifo_flip.frc = 0.0f;
+		_flifo_flip.trq = 0.0f;
+
+	} else if (dp > 0.0f) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_DECEL;
+		_flifo_flip.frc = _param_flifo_rot_thr.get() * _last_transition_throttle;
+		if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+			_flifo_flip.trq = -_param_flifo_rot_t_dec1.get();
+		} else { // (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU)
+			_flifo_flip.trq = -_param_flifo_rot_t_dec2.get();
+		}
+
+	} else {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_NOFLIP;
+		_flifo_flip.frc = 0.0f;
+		_flifo_flip.trq = 0.0f;
+	}
+
+	// stop trajectory if something went wrong
+	if (t > 2.0f*t4) {
+		_flifo_flip.phase = _flifo_flip_s::FLIFO_NOFLIP;
+		_flifo_flip.frc = 0.0f;
+		_flifo_flip.trq = 0.0f;
+	}
+
+	// flip trajectory depending on USD->RSU or RSU->USD
+	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
+		_flifo_flip.ang = M_PI_F - _flifo_flip.ang;
+		_flifo_flip.vel = - _flifo_flip.vel;
+		_flifo_flip.trq = - _flifo_flip.trq;
+	}
+
+	// terminate flip if conditions are met
+	if (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP) {
+		if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+			_set_status(flifo_status_s::FLIFO_STATE_USD);
+		}
+		if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
+			_set_status(flifo_status_s::FLIFO_STATE_RSU);
+		}
+	}
+
+}
+
 void FlifoAttitudeControl::update_attitude_setpoint()
 {
 	_vehicle_attitude_setpoint = _virtual_attitude_setpoint;
@@ -350,21 +430,9 @@ void FlifoAttitudeControl::update_attitude_setpoint()
 	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD) {
 		pitch_sp = pitch_sp + M_PI_F;
 
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
+	} else { // FLIFO_STATE_RSU_TO_USD or FLIFO_STATE_USD_TO_RSU
 		pitch_sp = _flifo_flip.ang;
 		roll_sp = 0.0f;
-
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP) {
-			_set_status(flifo_status_s::FLIFO_STATE_USD);
-		}
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		pitch_sp = M_PI_F - _flifo_flip.ang;
-		roll_sp = 0.0f;
-
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_NOFLIP) {
-			_set_status(flifo_status_s::FLIFO_STATE_RSU);
-		}
 	}
 
 	if (!_flifo_status.is_inv) {
@@ -388,11 +456,15 @@ void FlifoAttitudeControl::update_rates_setpoint()
 {
 	_vehicle_rates_setpoint = _virtual_rates_setpoint;
 
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
-		_vehicle_rates_setpoint.pitch = _vehicle_rates_setpoint.pitch + _flifo_flip.vel;
+	if (_flifo_flip.phase >= _flifo_flip_s::FLIFO_ACCEL && _flifo_flip.phase <= _flifo_flip_s::FLIFO_DECEL) {
+		if (_param_flifo_rot_ctrl.get() == 0) {
+			_vehicle_rates_setpoint.pitch = _flifo_flip.vel;
+		} else {
+			_vehicle_rates_setpoint.pitch += _flifo_flip.vel;
+		}
+		_vehicle_rates_setpoint.roll = 0.0f;
+		_vehicle_rates_setpoint.yaw = 0.0f;
 		
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		_vehicle_rates_setpoint.pitch = _vehicle_rates_setpoint.pitch - _flifo_flip.vel;
 	}
 }
 
@@ -400,11 +472,14 @@ void FlifoAttitudeControl::update_torque_setpoint()
 {
 	_vehicle_torque_setpoint = _virtual_torque_setpoint;
 
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
-		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] + _flifo_flip.acc*_param_flifo_rot_ff.get()/100.0f;
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] - _flifo_flip.acc*_param_flifo_rot_ff.get()/100.0f;
+	if (_flifo_flip.phase >= _flifo_flip_s::FLIFO_ACCEL && _flifo_flip.phase <= _flifo_flip_s::FLIFO_DECEL) {
+		if (_param_flifo_rot_ctrl.get() == 0) {
+			_vehicle_torque_setpoint.xyz[0] = 0.0f;
+			_vehicle_torque_setpoint.xyz[1] = _flifo_flip.trq;
+			_vehicle_torque_setpoint.xyz[2] = 0.0f;
+		} else {
+			_vehicle_torque_setpoint.xyz[1] += _flifo_flip.trq;
+		}
 	}
 
 	if (_flifo_status.is_inv) {
@@ -423,23 +498,10 @@ void FlifoAttitudeControl::update_torque_setpoint()
 
 void FlifoAttitudeControl::update_thrust_setpoint()
 {
-	float thrust_sp = 0.0f;
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU || _flifo_status.state == flifo_status_s::FLIFO_STATE_USD) {
-		thrust_sp = _virtual_thrust_setpoint.xyz[2];
+	float thrust_sp = _virtual_thrust_setpoint.xyz[2];
 
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD) {
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_SPIKE) {
-			thrust_sp = _param_flifo_spk_thr1.get() * _last_transition_throttle;
-		} else {
-			thrust_sp = _param_flifo_rot_thr.get() * _last_transition_throttle;
-		}
-
-	} else if (_flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		if (_flifo_flip.phase == _flifo_flip_s::FLIFO_SPIKE) {
-			thrust_sp = _param_flifo_spk_thr2.get() * _last_transition_throttle;
-		} else {
-			thrust_sp = _param_flifo_rot_thr.get() * _last_transition_throttle;
-		}
+	if (_flifo_flip.phase >= _flifo_flip_s::FLIFO_SPIKE && _flifo_flip.phase <= _flifo_flip_s::FLIFO_DECEL) {
+		thrust_sp = _flifo_flip.frc;
 	}
 
 	if (_flifo_status.is_inv) {

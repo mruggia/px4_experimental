@@ -70,7 +70,8 @@ private:
 	float _thrust_usd_factor;
 	
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::FLIFO_THR_CORR>)  _param_flifo_thr_corr
+		(ParamFloat<px4::params::FLIFO_THR_CORR>)  _param_flifo_thr_corr,
+		(ParamFloat<px4::params::FLIFO_THR_MIN>)   _param_flifo_thr_min
 	)
 
 };
