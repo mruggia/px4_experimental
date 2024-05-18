@@ -53,12 +53,13 @@ ControlAllocation::setEffectivenessMatrix(
 	const matrix::Matrix<float, ControlAllocation::NUM_AXES, ControlAllocation::NUM_ACTUATORS> &effectiveness,
 	const ActuatorVector &actuator_trim, const ActuatorVector &linearization_point, int num_actuators,
 	bool update_normalization_scale)
-{
+{	
+	// FLIFO: don't clip linearization point based on min/max. let sequential desaturation deal with it!
 	_effectiveness = effectiveness;
 	ActuatorVector linearization_point_clipped = linearization_point;
-	clipActuatorSetpoint(linearization_point_clipped);
+	//clipActuatorSetpoint(linearization_point_clipped);
 	_actuator_trim = actuator_trim + linearization_point_clipped;
-	clipActuatorSetpoint(_actuator_trim);
+	//clipActuatorSetpoint(_actuator_trim);
 	_num_actuators = num_actuators;
 	_control_trim = _effectiveness * linearization_point_clipped;
 }
