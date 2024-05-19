@@ -160,18 +160,20 @@ private:
 	void _set_inv(bool is_inv);
 
 	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::FLIFO_YAWRATE_K>)  _param_flifo_yawrate_k,
-		(ParamFloat<px4::params::FLIFO_PTCHRATE_K>) _param_flifo_pitchrate_k,
-		(ParamFloat<px4::params::FLIFO_ROLLRATE_K>) _param_flifo_rollrate_k,
 		(ParamFloat<px4::params::MC_YAWRATE_K>)     _param_mc_yawrate_k,
 		(ParamFloat<px4::params::MC_PITCHRATE_K>)   _param_mc_pitchrate_k,
 		(ParamFloat<px4::params::MC_ROLLRATE_K>)    _param_mc_rollrate_k,
+		(ParamFloat<px4::params::FLIFO_USD_YR_K>)   _param_flifo_usd_yr_k,
+		(ParamFloat<px4::params::FLIFO_USD_PR_K>)   _param_flifo_usd_pr_k,
+		(ParamFloat<px4::params::FLIFO_USD_RR_K>)   _param_flifo_usd_rr_k,
+		(ParamFloat<px4::params::FLIFO_ROT_YR_K>)   _param_flifo_rot_yr_k,
+		(ParamFloat<px4::params::FLIFO_ROT_PR_K>)   _param_flifo_rot_pr_k,
+		(ParamFloat<px4::params::FLIFO_ROT_RR_K>)   _param_flifo_rot_rr_k,
 
 		(ParamFloat<px4::params::FLIFO_SPK_TME>)	_param_flifo_spk_tme,
 		(ParamFloat<px4::params::FLIFO_SPK_THR1>)	_param_flifo_spk_thr1,
 		(ParamFloat<px4::params::FLIFO_SPK_THR2>)	_param_flifo_spk_thr2,
 
-		(ParamInt<px4::params::FLIFO_ROT_CTRL>)		_param_flifo_rot_ctrl,
 		(ParamFloat<px4::params::FLIFO_ROT_TME>)	_param_flifo_rot_tme,
 		(ParamFloat<px4::params::FLIFO_ROT_THR>)	_param_flifo_rot_thr,
 		(ParamFloat<px4::params::FLIFO_ROT_X_ACC>)	_param_flifo_rot_x_acc,

@@ -457,14 +457,7 @@ void FlifoAttitudeControl::update_rates_setpoint()
 	_vehicle_rates_setpoint = _virtual_rates_setpoint;
 
 	if (_flifo_flip.phase >= _flifo_flip_s::FLIFO_ACCEL && _flifo_flip.phase <= _flifo_flip_s::FLIFO_DECEL) {
-		if (_param_flifo_rot_ctrl.get() == 0) {
-			_vehicle_rates_setpoint.pitch = _flifo_flip.vel;
-		} else {
-			_vehicle_rates_setpoint.pitch += _flifo_flip.vel;
-		}
-		_vehicle_rates_setpoint.roll = 0.0f;
-		_vehicle_rates_setpoint.yaw = 0.0f;
-		
+		_vehicle_rates_setpoint.pitch += _flifo_flip.vel;
 	}
 }
 
@@ -472,20 +465,21 @@ void FlifoAttitudeControl::update_torque_setpoint()
 {
 	_vehicle_torque_setpoint = _virtual_torque_setpoint;
 
-	if (_flifo_flip.phase >= _flifo_flip_s::FLIFO_ACCEL && _flifo_flip.phase <= _flifo_flip_s::FLIFO_DECEL) {
-		if (_param_flifo_rot_ctrl.get() == 0) {
-			_vehicle_torque_setpoint.xyz[0] = 0.0f;
-			_vehicle_torque_setpoint.xyz[1] = _flifo_flip.trq;
-			_vehicle_torque_setpoint.xyz[2] = 0.0f;
-		} else {
-			_vehicle_torque_setpoint.xyz[1] += _flifo_flip.trq;
-		}
+	if (_flifo_status.is_inv) {
+		_vehicle_torque_setpoint.xyz[0] = _vehicle_torque_setpoint.xyz[0] / _param_mc_rollrate_k.get()  * _param_flifo_usd_yr_k.get();
+		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] / _param_mc_pitchrate_k.get() * _param_flifo_usd_pr_k.get();
+		_vehicle_torque_setpoint.xyz[2] = _vehicle_torque_setpoint.xyz[2] / _param_mc_yawrate_k.get()   * _param_flifo_usd_rr_k.get();
 	}
 
-	if (_flifo_status.is_inv) {
-		_vehicle_torque_setpoint.xyz[0] = _vehicle_torque_setpoint.xyz[0] / _param_mc_rollrate_k.get()  * _param_flifo_rollrate_k.get();
-		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] / _param_mc_pitchrate_k.get() * _param_flifo_pitchrate_k.get();
-		_vehicle_torque_setpoint.xyz[2] = _vehicle_torque_setpoint.xyz[2] / _param_mc_yawrate_k.get()   * _param_flifo_yawrate_k.get();
+	if (_flifo_flip.phase == _flifo_flip_s::FLIFO_ACCEL || _flifo_flip.phase == _flifo_flip_s::FLIFO_DECEL) {
+		_vehicle_torque_setpoint.xyz[0] = _vehicle_torque_setpoint.xyz[0] * _param_flifo_rot_yr_k.get();
+		_vehicle_torque_setpoint.xyz[1] = _vehicle_torque_setpoint.xyz[1] * _param_flifo_rot_pr_k.get() + _flifo_flip.trq;
+		_vehicle_torque_setpoint.xyz[2] = _vehicle_torque_setpoint.xyz[2] * _param_flifo_rot_rr_k.get();
+	
+	} else if (_flifo_flip.phase == _flifo_flip_s::FLIFO_FREE) {
+		_vehicle_torque_setpoint.xyz[0] = 0.0f;
+		_vehicle_torque_setpoint.xyz[1] = 0.0f;
+		_vehicle_torque_setpoint.xyz[2] = 0.0f;
 	}
 
 	if (!_is_attitude_valid) {

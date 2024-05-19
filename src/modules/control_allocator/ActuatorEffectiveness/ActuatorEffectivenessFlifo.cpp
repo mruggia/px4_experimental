@@ -75,14 +75,21 @@ bool ActuatorEffectivenessFlifo::getEffectivenessMatrix(Configuration &configura
 		( effectiveness(5,4)+effectiveness(5,5)+effectiveness(5,6)+effectiveness(5,7) );
 
 	// extract relevant part of effectiveness matrix based on flifo state
-	for (int i = 0; i < NUM_AXES; i++) {
-		for (int j = 0; j < num_rotors*2; j++) {
-			if (i==3 || i==4 || j >= num_rotors) {
-				effectiveness(i,j+start_index) = 0.0;
-			} else {
-				if (_flifo_status.is_inv) {
-					effectiveness(i,j+start_index) = effectiveness(i,j+start_index+num_rotors);
-				}
+	for (int j = 0; j < num_rotors*2; j++) {
+
+		if (_flifo_status.is_inv) {
+			effectiveness(0,j+start_index) = effectiveness(0,j+start_index+num_rotors);
+			effectiveness(1,j+start_index) = effectiveness(1,j+start_index+num_rotors);
+			effectiveness(2,j+start_index) = effectiveness(2,j+start_index+num_rotors);
+		}
+
+		effectiveness(3,j+start_index) = 0.0f;
+		effectiveness(4,j+start_index) = 0.0f;
+		effectiveness(5,j+start_index) = -1.0f; // has to be normalized!
+
+		if(j >= num_rotors) {
+			for (int i = 0; i < NUM_AXES; i++) {
+				effectiveness(i,j+start_index) = 0.0f;
 			}
 		}
 	}
@@ -95,9 +102,7 @@ bool ActuatorEffectivenessFlifo::getEffectivenessMatrix(Configuration &configura
 float ActuatorEffectivenessFlifo::getFlifoActuatorMin() 
 {	
 	float min;
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD || _flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		min = -999.f/1000.f-FLT_EPSILON;	// equal to effective_output = 1
-	} else if (!_flifo_status.is_inv) {
+	if (!_flifo_status.is_inv) {
 		min = 1.f/1000.f+FLT_EPSILON;		// equal to effective_output = 1001
 		min = min + _param_flifo_thr_min.get();
 	} else {
@@ -108,9 +113,7 @@ float ActuatorEffectivenessFlifo::getFlifoActuatorMin()
 float ActuatorEffectivenessFlifo::getFlifoActuatorMax()
 {
 	float max;
-	if (_flifo_status.state == flifo_status_s::FLIFO_STATE_RSU_TO_USD || _flifo_status.state == flifo_status_s::FLIFO_STATE_USD_TO_RSU) {
-		max = 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
-	} else if (!_flifo_status.is_inv) {
+	if (!_flifo_status.is_inv) {
 		max = 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
 	} else {
 		max = -1.f/1000.f-FLT_EPSILON;		// equal to effective_output = 999
