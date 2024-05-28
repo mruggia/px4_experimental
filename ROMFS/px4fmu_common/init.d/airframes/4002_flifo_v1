@@ -42,7 +42,7 @@ param set MAV_1_RATE        82944 	# mavlink 82944b/s data rate (90% of max)
 param set SER_WIFI_BAUD     921600 	# mavlink wifi baud rate
 
 # flight modes
-param set COM_FLTMODE1      8 		# altitude (up)
+param set COM_FLTMODE1      8 		# stabilized (up)
 param set COM_FLTMODE4      2 		# position (middle)
 param set COM_FLTMODE6      3 		# mission (down)
 
@@ -104,7 +104,7 @@ param set MC_PITCH_P        6.50
 param set MC_ROLL_P         6.50
 
 # position control
-param set MPC_XY_VEL_P_ACC  3.00
+param set MPC_XY_VEL_P_ACC  4.00
 param set MPC_Z_VEL_P_ACC   8.00
 param set MPC_XY_VEL_I_ACC  0.40
 param set MPC_Z_VEL_I_ACC   2.00
@@ -133,16 +133,6 @@ param set FLIFO_ROT_T_ACC1  0.60 	# feedforward flip torque when accelerating RS
 param set FLIFO_ROT_T_ACC2  0.50 	# feedforward flip torque when accelerating USD->RSU
 param set FLIFO_ROT_T_DEC1  1.50 	# feedforward flip torque when decellerating RSU->USD
 param set FLIFO_ROT_T_DEC2  1.40 	# feedforward flip torque when decellerating USD->RSU
-
-# maximum motor slew rate
-param set CA_R0_SLEW 0.008
-param set CA_R1_SLEW 0.008
-param set CA_R2_SLEW 0.008
-param set CA_R3_SLEW 0.008
-param set CA_R4_SLEW 0.008
-param set CA_R5_SLEW 0.008
-param set CA_R6_SLEW 0.008
-param set CA_R7_SLEW 0.008
 
 # propeller characteristics (right-side-up) (HQProp 3D 5x3.5x3)
 param set CA_ROTOR0_CT +13.10
