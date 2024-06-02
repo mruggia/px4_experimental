@@ -6,7 +6,7 @@ from px_uploader import *
 
 if __name__ == '__main__':
 
-    port_bootloader  = "/dev/ttyS4,/dev/ttyS5,/dev/ttyS6"
+    port_bootloader  = "/dev/ttyS4,/dev/ttyS5,/dev/ttyS6,/dev/ttyS7"
 
     # remove __determineInterface check
     def _determineInterface(self):

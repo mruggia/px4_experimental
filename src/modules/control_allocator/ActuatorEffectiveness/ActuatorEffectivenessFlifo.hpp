@@ -35,7 +35,6 @@
 
 #include "ActuatorEffectiveness.hpp"
 #include "ActuatorEffectivenessRotors.hpp"
-#include <uORB/topics/flifo_status.h>
 
 class ActuatorEffectivenessFlifo : public ModuleParams, public ActuatorEffectiveness
 {
@@ -56,8 +55,8 @@ public:
 			    ActuatorVector &actuator_sp, const matrix::Vector<float, NUM_ACTUATORS> &actuator_min,
 			    const matrix::Vector<float, NUM_ACTUATORS> &actuator_max) override;*/
 
-	flifo_status_s getFlifoStatus() { return _flifo_status; }
-	void  setFlifoStatus(flifo_status_s flifo_status) { _flifo_status = flifo_status; }
+	bool  getFlifoInv() { return _flifo_is_inv; }
+	void  setFlifoInv(bool flifo_is_inv) { _flifo_is_inv = flifo_is_inv; }
 	float getFlifoUSDThrustFactor() { return _thrust_usd_factor; };
 	float getFlifoActuatorMin();
 	float getFlifoActuatorMax();
@@ -66,7 +65,7 @@ protected:
 	ActuatorEffectivenessRotors _mc_rotors;
 
 private:
-	flifo_status_s _flifo_status;
+	bool _flifo_is_inv;
 	float _thrust_usd_factor;
 	
 	DEFINE_PARAMETERS(

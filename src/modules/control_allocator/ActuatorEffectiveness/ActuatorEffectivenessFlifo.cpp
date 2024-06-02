@@ -40,8 +40,7 @@ ActuatorEffectivenessFlifo::ActuatorEffectivenessFlifo(ModuleParams *parent)
 	: ModuleParams(parent),
 	  _mc_rotors(this)
 {	
-	_flifo_status.state = flifo_status_s::FLIFO_STATE_RSU;
-	_flifo_status.is_inv = false;
+	_flifo_is_inv = false;
 
 }
 
@@ -75,22 +74,23 @@ bool ActuatorEffectivenessFlifo::getEffectivenessMatrix(Configuration &configura
 		( effectiveness(5,4)+effectiveness(5,5)+effectiveness(5,6)+effectiveness(5,7) );
 
 	// extract relevant part of effectiveness matrix based on flifo state
-	for (int j = 0; j < num_rotors*2; j++) {
+	for (int j = 0; j < num_rotors; j++) {
 
-		if (_flifo_status.is_inv) {
+		if (_flifo_is_inv) {
 			effectiveness(0,j+start_index) = effectiveness(0,j+start_index+num_rotors);
 			effectiveness(1,j+start_index) = effectiveness(1,j+start_index+num_rotors);
 			effectiveness(2,j+start_index) = effectiveness(2,j+start_index+num_rotors);
 		}
-
+		
 		effectiveness(3,j+start_index) = 0.0f;
 		effectiveness(4,j+start_index) = 0.0f;
-		effectiveness(5,j+start_index) = -1.0f; // has to be normalized!
+		effectiveness(5,j+start_index) = -1.0f; // thrust has to be normalized
+	}
 
-		if(j >= num_rotors) {
-			for (int i = 0; i < NUM_AXES; i++) {
-				effectiveness(i,j+start_index) = 0.0f;
-			}
+	// clear unused parts of effectiveness matrix
+	for (int j = num_rotors; j < num_rotors*2; j++) {
+		for (int i = 0; i < NUM_AXES; i++) {
+			effectiveness(i,j+start_index) = 0.0f;
 		}
 	}
 	
@@ -102,7 +102,7 @@ bool ActuatorEffectivenessFlifo::getEffectivenessMatrix(Configuration &configura
 float ActuatorEffectivenessFlifo::getFlifoActuatorMin() 
 {	
 	float min;
-	if (!_flifo_status.is_inv) {
+	if (!_flifo_is_inv) {
 		min = 1.f/1000.f+FLT_EPSILON;		// equal to effective_output = 1001
 		min = min + _param_flifo_thr_min.get();
 	} else {
@@ -110,10 +110,11 @@ float ActuatorEffectivenessFlifo::getFlifoActuatorMin()
 	}
 	return min;
 }
+
 float ActuatorEffectivenessFlifo::getFlifoActuatorMax()
 {
 	float max;
-	if (!_flifo_status.is_inv) {
+	if (!_flifo_is_inv) {
 		max = 999.f/1000.f+FLT_EPSILON;	// equal to effective_output = 1999
 	} else {
 		max = -1.f/1000.f-FLT_EPSILON;		// equal to effective_output = 999

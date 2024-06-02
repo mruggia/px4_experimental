@@ -17,7 +17,7 @@ ekf2 start &
  
 control_allocator start
 
-flifo_att_control start
+flifo_control start
 
 mc_rate_control start virtual
 mc_att_control start virtual

@@ -32,8 +32,8 @@
 ############################################################################
 
 px4_add_module(
-	MODULE modules__flifo_att_control
-	MAIN flifo_att_control
+	MODULE modules__flifo_control
+	MAIN flifo_control
 	SRCS
-		flifo_att_control.cpp
+		flifo_control.cpp
 	)

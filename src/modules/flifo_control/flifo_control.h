@@ -32,10 +32,11 @@
  ****************************************************************************/
 
 /**
- * @file flifo_att_control.cpp
- * Implementation of the flifo attitude controller. This module receives data from the multicopter
- * attitude controller and processes it. It flips the attitude setpoint when up-side-down flying is
- * requested and generates an attitude trajectory for up-side-down <-> right-side-up transitions.
+ * @file flifo_control.cpp
+ * Implementation of the flifo controller. This module receives data from the 
+ * multicopter controllers and processes it. It flips the attitude setpoint 
+ * when up-side-down flying is requested and generates an attitude trajectory 
+ * for up-side-down <-> right-side-up transitions.
  *
  * @author Marco Ruggia		<marco.ruggia@fhgr.ch>
  *
@@ -75,14 +76,14 @@
 
 using namespace time_literals;
 
-extern "C" __EXPORT int flifo_att_control_main(int argc, char *argv[]);
+extern "C" __EXPORT int flifo_control_main(int argc, char *argv[]);
 
-class FlifoAttitudeControl : public ModuleBase<FlifoAttitudeControl>, public ModuleParams, public px4::WorkItem
+class FlifoControl : public ModuleBase<FlifoControl>, public ModuleParams, public px4::WorkItem
 {
 public:
 
-	FlifoAttitudeControl();
-	~FlifoAttitudeControl() override;
+	FlifoControl();
+	~FlifoControl() override;
 
 	bool init();
 
@@ -96,9 +97,8 @@ private:
 
 	void Run() override;
 
-	uORB::Subscription 			_action_request_sub{ORB_ID(action_request)};
-	uORB::Subscription 			_vehicle_cmd_sub{ORB_ID(vehicle_command)};
-	uORB::SubscriptionInterval 	_parameter_update_sub{ORB_ID(parameter_update), 1_s};
+	uORB::Subscription 					_action_request_sub{ORB_ID(action_request)};
+	uORB::SubscriptionInterval 			_parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uORB::Subscription 					_vehicle_attitude_sub{ORB_ID(vehicle_attitude)};
 	uORB::Subscription 					_vehicle_rates_sub{ORB_ID(vehicle_angular_velocity)};
@@ -145,7 +145,6 @@ private:
 	} _flifo_flip;
 
 	void poll_parameters();
-	void poll_vehicle_cmd();
 	void poll_action_request();
 
 	void update_attitude();

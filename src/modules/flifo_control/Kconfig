@@ -1,0 +1,12 @@
+menuconfig MODULES_FLIFO_CONTROL
+	bool "flifo_control"
+	default y
+	---help---
+		Enable support for flifo_control
+
+menuconfig USER_FLIFO_CONTROL
+	bool "flifo_control running as userspace module"
+	default y
+	depends on BOARD_PROTECTED && MODULES_FLIFO_CONTROL
+	---help---
+		Put flifo_control in userspace memory

@@ -32,8 +32,8 @@
  ****************************************************************************/
 
 /**
- * @file flifo_att_control_params.c
- * Parameters for flifo attitude controller.
+ * @file flifo_control_params.c
+ * Parameters for flifo controller.
  *
  * @author Marco Ruggia <marco.ruggia@fhgr.ch>
  */

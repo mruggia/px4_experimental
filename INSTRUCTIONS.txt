@@ -68,16 +68,20 @@ python Tools/px_uploader_flifo.py px4_fmu-v4_default
 ######################################################################################################
 # set up flifo drone
 
+-> flash wifi module (if not already done)
+->    get programmer: https://www.bastelgarage.ch/esp-01-ch340g-programmer
+->    get firmware:   http://www.grubba.com/mavesp8266/firmware-1.2.2.bin
+->    get uploader:   https://github.com/espressif/esptool
+->    upload:         python esptool.py --baud 115200 --port /dev/ttyS3 write_flash 0x00000 firmware-1.2.2.bin
+->    configure:      browse to "http://192.168.4.1/setup" -> change SSID: "flifo_net", PW: "flofi2024"
+
 -> install QGroundControl (v4.3.0): https://github.com/mavlink/qgroundcontrol/releases/tag/v4.3.0
 -> open QGroundControl (windows) & connect to flifo drone via usb
--> set param: SYS_AUTOSTART = 4002 -> reboot drone
--> configure battery settings + calibrate battery voltage divider
--> calibrate: compass, gyroscope, accelerometer
+-> set param: SYS_AUTOSTART = 4002 -> reboot drone & connect over wifi + battery power
+-> calibrate: gyroscope, accelerometer
 -> calibrate radio, then:
-->    set up flightmode switch
-->    set up arm switch (CH5) and kill switch (CH12)
-->    set up flifo switch (parameter "RC_MAP_FLIFO_SW")
--> connect to pixhawk over wifi (with battery power) with SSID=PixRacer, pw=pixracer
+->    set up flightmode switch (CH9) arm switch (CH5) and kill switch (CH12)
+->    set up flifo switch (parameter "RC_MAP_FLIFO_SW": CH10)
 -> MAVLink Console: 
 ->    reverse motors spinning wrong way with "dshot reverse -m <id>" or "dshot normal -m <id>"
 ->    (motor spin direction is opposite of typical! spin away from x-axis!)

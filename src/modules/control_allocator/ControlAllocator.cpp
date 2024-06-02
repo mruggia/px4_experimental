@@ -366,8 +366,10 @@ ControlAllocator::Run()
 		if(_flifo_status_sub.update(&flifo_status)) {
 
 			ActuatorEffectivenessFlifo* flifo_effectiveness = (ActuatorEffectivenessFlifo*) _actuator_effectiveness;
-			flifo_effectiveness->setFlifoStatus(flifo_status);
-			update_effectiveness_matrix_if_needed(EffectivenessUpdateReason::CONFIGURATION_UPDATE);
+			if (flifo_effectiveness->getFlifoInv() != flifo_status.is_inv) {
+				flifo_effectiveness->setFlifoInv(flifo_status.is_inv);
+				update_effectiveness_matrix_if_needed(EffectivenessUpdateReason::CONFIGURATION_UPDATE);
+			}
 		}
 	}
 
@@ -402,7 +404,7 @@ ControlAllocator::Run()
 		// FLIFO: scale thrust_sp for up-side-down flying as thrust allocation is always normalized..
 		if (_effectiveness_source_id == EffectivenessSource::FLIFO) {
 			ActuatorEffectivenessFlifo* flifo_effectiveness = (ActuatorEffectivenessFlifo*) _actuator_effectiveness;
-			if (flifo_effectiveness->getFlifoStatus().is_inv) {
+			if (flifo_effectiveness->getFlifoInv()) {
 				_thrust_sp(2) = _thrust_sp(2) * flifo_effectiveness->getFlifoUSDThrustFactor();
 				if (_thrust_sp(2) >= 1.0f) { _thrust_sp(2) = 1.0f-FLT_EPSILON; }
 			}
