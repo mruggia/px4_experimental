@@ -82,36 +82,36 @@ param set FLIFO_THR_CORR    0.80 	# up-side-down hover correction factor indepen
 param set FLIFO_THR_MIN     0.20 	# minimum throttle to avoid arms oscillating
 
 # rate control (desired 1 Nm for given 1 rad/s error)
-param set MC_YAWRATE_K      0.70 	# right-side-up K gain
+param set MC_YAWRATE_K      0.80 	# K gain
 param set MC_PITCHRATE_K    0.80 	#
 param set MC_ROLLRATE_K     0.80 	#
-param set MC_YAWRATE_P      0.03 	# right-side-up P gain
+param set MC_YAWRATE_P      0.03 	# P gain
 param set MC_PITCHRATE_P    0.12 	#
 param set MC_ROLLRATE_P     0.12 	#
-param set MC_YAWRATE_I      0.04 	# right-side-up I gain
+param set MC_YAWRATE_I      0.04 	# I gain
 param set MC_PITCHRATE_I    0.18 	#
 param set MC_ROLLRATE_I     0.18 	#
-param set MC_YAWRATE_D      0.000 	# right-side-up D gain
+param set MC_YAWRATE_D      0.000 	# D gain
 param set MC_PITCHRATE_D    0.003 	#
 param set MC_ROLLRATE_D     0.003 	#
-param set MC_YAWRATE_MAX    360.0 	# rate limits
-param set MC_PITCHRATE_MAX  7200.0 	#
-param set MC_ROLLRATE_MAX   7200.0 	#
+param set MC_YAWRATE_MAX    90.0 	# rate limits
+param set MC_PITCHRATE_MAX  1800.0 	#
+param set MC_ROLLRATE_MAX   1800.0 	#
 
 # attitude control (desired 1 rad/s for given 1 rad error)
-param set MC_YAW_P          6.50
-param set MC_PITCH_P        6.50
-param set MC_ROLL_P         6.50
+param set MC_YAW_P          6.50    # P gain
+param set MC_PITCH_P        6.50 	#
+param set MC_ROLL_P         6.50 	#
 
 # position control
-param set MPC_XY_VEL_P_ACC  4.00
-param set MPC_Z_VEL_P_ACC   8.00
-param set MPC_XY_VEL_I_ACC  0.40
-param set MPC_Z_VEL_I_ACC   2.00
-param set MPC_XY_VEL_D_ACC  0.20
-param set MPC_Z_VEL_D_ACC   0.00
-param set MPC_XY_P          2.00
-param set MPC_Z_P           3.00
+param set MPC_XY_VEL_P_ACC  4.00 	# XY/Z velocity P gain
+param set MPC_Z_VEL_P_ACC   8.00 	#
+param set MPC_XY_VEL_I_ACC  0.40 	# XY/Z velocity I gain
+param set MPC_Z_VEL_I_ACC   2.00 	#
+param set MPC_XY_VEL_D_ACC  0.20 	# XY/Z velocity D gain
+param set MPC_Z_VEL_D_ACC   0.00 	#
+param set MPC_XY_P          2.00 	# XY/Z position P gain
+param set MPC_Z_P           3.00 	#
 
 # flifo control
 param set FLIFO_USD_YR_K    0.80 	# up-side-down rate K gain (PID same as in right-side-up)
@@ -129,77 +129,77 @@ param set FLIFO_ROT_TME     0.40 	# duration of flip transition [s]
 param set FLIFO_ROT_THR     1.00 	# factor of hover throttle during transition
 param set FLIFO_ROT_X_ACC   0.18 	# percentage of flip transition spent accelerating
 param set FLIFO_ROT_X_DEC   0.60 	# percentage of flip transition spent decellerating
-param set FLIFO_ROT_T_ACC1  0.60 	# feedforward flip torque when accelerating RSU->USD
-param set FLIFO_ROT_T_ACC2  0.50 	# feedforward flip torque when accelerating USD->RSU
-param set FLIFO_ROT_T_DEC1  1.40 	# feedforward flip torque when decellerating RSU->USD
-param set FLIFO_ROT_T_DEC2  1.40 	# feedforward flip torque when decellerating USD->RSU
+param set FLIFO_ROT_T_ACC1  0.60 	# feedforward flip torque accelerating RSU->USD
+param set FLIFO_ROT_T_ACC2  0.50 	# feedforward flip torque accelerating USD->RSU
+param set FLIFO_ROT_T_DEC1  1.40 	# feedforward flip torque decellerating RSU->USD
+param set FLIFO_ROT_T_DEC2  1.40 	# feedforward flip torque decellerating USD->RSU
 
 # propeller characteristics (right-side-up) (HQProp 3D 5x3.5x3)
-param set CA_ROTOR0_CT +13.10
-param set CA_ROTOR1_CT +13.10
-param set CA_ROTOR2_CT +13.10
-param set CA_ROTOR3_CT +13.10
-param set CA_ROTOR0_KM -0.013
-param set CA_ROTOR1_KM -0.013
-param set CA_ROTOR2_KM +0.013
-param set CA_ROTOR3_KM +0.013
+param set CA_ROTOR0_CT     +13.10 	# thrst coefficient
+param set CA_ROTOR1_CT     +13.10 	#
+param set CA_ROTOR2_CT     +13.10 	#
+param set CA_ROTOR3_CT     +13.10 	#
+param set CA_ROTOR0_KM     -0.013 	# moment coefficient
+param set CA_ROTOR1_KM     -0.013 	#
+param set CA_ROTOR2_KM     +0.013 	#
+param set CA_ROTOR3_KM     +0.013 	#
 # propeller characteristics (up-side-down) (HQProp 3D 5x3.5x3)
-param set CA_ROTOR4_CT +12.50
-param set CA_ROTOR5_CT +12.50
-param set CA_ROTOR6_CT +12.50
-param set CA_ROTOR7_CT +12.50
-param set CA_ROTOR4_KM -0.012
-param set CA_ROTOR5_KM -0.012
-param set CA_ROTOR6_KM +0.012
-param set CA_ROTOR7_KM +0.012
+param set CA_ROTOR4_CT     +12.50 	# thrst coefficient
+param set CA_ROTOR5_CT     +12.50 	#
+param set CA_ROTOR6_CT     +12.50 	#
+param set CA_ROTOR7_CT     +12.50 	#
+param set CA_ROTOR4_KM     -0.012 	# moment coefficient
+param set CA_ROTOR5_KM     -0.012 	#
+param set CA_ROTOR6_KM     +0.012 	#
+param set CA_ROTOR7_KM     +0.012 	#
 
 # frame geometry (right-side-up)
-param set CA_ROTOR0_PX +0.092
-param set CA_ROTOR1_PX -0.092
-param set CA_ROTOR2_PX +0.092
-param set CA_ROTOR3_PX -0.092
-param set CA_ROTOR0_PY +0.092
-param set CA_ROTOR1_PY -0.092
-param set CA_ROTOR2_PY -0.092
-param set CA_ROTOR3_PY +0.092
-param set CA_ROTOR0_PZ +0.010
-param set CA_ROTOR1_PZ +0.010
-param set CA_ROTOR2_PZ +0.010
-param set CA_ROTOR3_PZ +0.010
-param set CA_ROTOR0_AX +0.000
-param set CA_ROTOR1_AX -0.000
-param set CA_ROTOR2_AX +0.000
-param set CA_ROTOR3_AX -0.000
-param set CA_ROTOR0_AY +0.000
-param set CA_ROTOR1_AY -0.000
-param set CA_ROTOR2_AY -0.000
-param set CA_ROTOR3_AY +0.000
-param set CA_ROTOR0_AZ -1.000
-param set CA_ROTOR1_AZ -1.000
-param set CA_ROTOR2_AZ -1.000
-param set CA_ROTOR3_AZ -1.000
+param set CA_ROTOR0_PX     +0.092 	# X position
+param set CA_ROTOR1_PX     -0.092 	#
+param set CA_ROTOR2_PX     +0.092 	#
+param set CA_ROTOR3_PX     -0.092 	#
+param set CA_ROTOR0_PY     +0.092 	# Y position
+param set CA_ROTOR1_PY     -0.092 	#
+param set CA_ROTOR2_PY     -0.092 	#
+param set CA_ROTOR3_PY     +0.092 	#
+param set CA_ROTOR0_PZ     +0.010 	# Z position
+param set CA_ROTOR1_PZ     +0.010 	#
+param set CA_ROTOR2_PZ     +0.010 	#
+param set CA_ROTOR3_PZ     +0.010 	#
+param set CA_ROTOR0_AX     +0.000 	# X axis
+param set CA_ROTOR1_AX     -0.000 	#
+param set CA_ROTOR2_AX     +0.000 	#
+param set CA_ROTOR3_AX     -0.000 	#
+param set CA_ROTOR0_AY     +0.000 	# Y axis
+param set CA_ROTOR1_AY     -0.000 	#
+param set CA_ROTOR2_AY     -0.000 	#
+param set CA_ROTOR3_AY     +0.000 	#
+param set CA_ROTOR0_AZ     -1.000 	# Z axis
+param set CA_ROTOR1_AZ     -1.000 	#
+param set CA_ROTOR2_AZ     -1.000 	#
+param set CA_ROTOR3_AZ     -1.000 	#
 # frame geometry (up-side-down)
-param set CA_ROTOR4_PX +0.117
-param set CA_ROTOR5_PX -0.117
-param set CA_ROTOR6_PX +0.117
-param set CA_ROTOR7_PX -0.117
-param set CA_ROTOR4_PY +0.038
-param set CA_ROTOR5_PY -0.038
-param set CA_ROTOR6_PY -0.038
-param set CA_ROTOR7_PY +0.038
-param set CA_ROTOR4_PZ +0.010
-param set CA_ROTOR5_PZ +0.010
-param set CA_ROTOR6_PZ +0.010
-param set CA_ROTOR7_PZ +0.010
-param set CA_ROTOR4_AX +0.000
-param set CA_ROTOR5_AX -0.000
-param set CA_ROTOR6_AX +0.000
-param set CA_ROTOR7_AX -0.000
-param set CA_ROTOR4_AY +0.842
-param set CA_ROTOR5_AY -0.842
-param set CA_ROTOR6_AY -0.842
-param set CA_ROTOR7_AY +0.842
-param set CA_ROTOR4_AZ -0.540
-param set CA_ROTOR5_AZ -0.540
-param set CA_ROTOR6_AZ -0.540
-param set CA_ROTOR7_AZ -0.540
+param set CA_ROTOR4_PX     +0.117 	# X position
+param set CA_ROTOR5_PX     -0.117 	#
+param set CA_ROTOR6_PX     +0.117 	#
+param set CA_ROTOR7_PX     -0.117 	#
+param set CA_ROTOR4_PY     +0.038 	# Y position
+param set CA_ROTOR5_PY     -0.038 	#
+param set CA_ROTOR6_PY     -0.038 	#
+param set CA_ROTOR7_PY     +0.038 	#
+param set CA_ROTOR4_PZ     +0.010 	# Z position
+param set CA_ROTOR5_PZ     +0.010 	#
+param set CA_ROTOR6_PZ     +0.010 	#
+param set CA_ROTOR7_PZ     +0.010 	#
+param set CA_ROTOR4_AX     +0.000 	# X axis
+param set CA_ROTOR5_AX     -0.000 	#
+param set CA_ROTOR6_AX     +0.000 	#
+param set CA_ROTOR7_AX     -0.000 	#
+param set CA_ROTOR4_AY     +0.842 	# Y axis
+param set CA_ROTOR5_AY     -0.842 	#
+param set CA_ROTOR6_AY     -0.842 	#
+param set CA_ROTOR7_AY     +0.842 	#
+param set CA_ROTOR4_AZ     -0.540 	# Z axis
+param set CA_ROTOR5_AZ     -0.540 	#
+param set CA_ROTOR6_AZ     -0.540 	#
+param set CA_ROTOR7_AZ     -0.540 	#
