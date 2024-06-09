@@ -78,7 +78,7 @@ param set MPC_MANTHR_MIN    0 		# no minimum throttle required, since air-mode
 param set MPC_THR_MIN       0.05 	# no minimum throttle required, since air-mode (cant set 0 exactly)
 param set HTE_THR_RANGE     0.10 	# expected hover throttle range (maximal)
 param set MPC_THR_HOVER     0.38 	# hover throttle (right-side-up) (HQProp 3D 5x3.5x3)
-param set FLIFO_THR_CORR    0.80 	# up-side-down hover correction factor independent of geometry or props
+param set FLIFO_THR_CORR    0.75 	# up-side-down hover correction factor independent of geometry or props
 param set FLIFO_THR_MIN     0.20 	# minimum throttle to avoid arms oscillating
 
 # rate control (desired 1 Nm for given 1 rad/s error)
@@ -123,8 +123,8 @@ param set FLIFO_ROT_RR_K    0.50 	#
 
 # flifo transition parameters
 param set FLIFO_SPK_TME     0.15 	# duration of throttle spike before transition [s]
-param set FLIFO_SPK_THR1    1.30 	# factor of hover throttle spike before flip RSU->USD
-param set FLIFO_SPK_THR2    1.50 	# factor of hover throttle spike before flip USD->RSU
+param set FLIFO_SPK_THR1    1.25 	# factor of hover throttle spike before flip RSU->USD
+param set FLIFO_SPK_THR2    1.35 	# factor of hover throttle spike before flip USD->RSU
 param set FLIFO_ROT_TME     0.40 	# duration of flip transition [s]
 param set FLIFO_ROT_THR     1.00 	# factor of hover throttle during transition
 param set FLIFO_ROT_X_ACC   0.18 	# percentage of flip transition spent accelerating
